@@ -67,7 +67,7 @@ class BasicBlock(nn.Module):
 
 
 class BottleBlock(nn.Module):
-    """A basic resnet block withtout a mask but with a bottleneck"""
+    """A basic resnet block withtout a mask but with a bottleneck (3*3 -> 3*3 not 1*1 -> 3*3)"""
     def __init__(self, in_channels, out_channels, mid_channels, stride, drop_rate=0.0):
         super(BottleBlock, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_channels)

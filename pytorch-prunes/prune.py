@@ -170,7 +170,7 @@ def prune():
             pruner.fisher_prune(model, prune_every=args.prune_every)
         else:
             print('l1 pruning')
-            pruner.l1_prune(model, prune_every=args.prune_every)
+            pruner.l1_prune(model)
     else:
         print('random pruning')
         pruner.random_prune(model, )
@@ -198,10 +198,7 @@ if __name__ == '__main__':
             print(f"{no_params / 1e6 :.2f} M parameters remaining")
             param_history.append(no_params)
 
-        # Prune
-        prune()
-
-        # Save before pruning
+        # Save before pruning so that param_history is consistent with the model
         if epoch != 0 and ((epoch % args.save_every == 0) or (epoch + 1 == args.no_epochs)):
             filename = 'checkpoints/%s_%d_prunes.t7' % (args.save_file, epoch)
             save_checkpoint({
@@ -211,3 +208,6 @@ if __name__ == '__main__':
                 'param_history': param_history,
                 'prune_history': pruner.prune_history,
             }, filename=filename)
+
+        # Prune
+        prune()

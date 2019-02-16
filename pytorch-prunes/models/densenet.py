@@ -9,11 +9,21 @@ from torch.autograd import Variable
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
+import torch.utils.checkpoint as cp
 
 import torchvision.models as models
 
 import sys
 import math
+
+
+def _bn_function_factory(norm, relu, conv):
+    def bn_function(*inputs):
+        concated_features = torch.cat(inputs, 1)
+        bottleneck_output = conv(relu(norm(concated_features)))
+        return bottleneck_output
+
+    return bn_function
 
 
 class Identity(nn.Module):
@@ -44,7 +54,8 @@ class ZeroMake(nn.Module):
 
 
 class MaskBlock(nn.Module):
-    def __init__(self, n_channels, growth_rate):
+    """A basic densenet bottled block with a mask to handle pruning"""
+    def __init__(self, n_channels, growth_rate, efficient):
         super(MaskBlock, self).__init__()
         inter_channels = 4 * growth_rate
         self.bn1 = nn.BatchNorm2d(n_channels)
@@ -65,12 +76,17 @@ class MaskBlock(nn.Module):
         self.in_channels = n_channels
         self.out_channels = growth_rate
         self.stride = 1
+        self.efficient = efficient
 
         # Fisher method is called on backward passes
         self.running_fisher = 0
 
-    def forward(self, x):
-        out = self.conv1(F.relu(self.bn1(x)))
+    def forward(self, *prev_features):
+        bn_function = _bn_function_factory(self.norm1, F.relu, self.conv1)
+        if self.efficient and any(prev_feature.requires_grad for prev_feature in prev_features):
+            out = cp.checkpoint(bn_function, *prev_features)
+        else:
+            out = bn_function(*prev_features)
         out = F.relu(self.bn2(out))
         if self.mask is not None:
             out = out * self.mask[None, :, None, None]
@@ -80,7 +96,6 @@ class MaskBlock(nn.Module):
         self.act = out
 
         out = self.conv2(out)
-        out = torch.cat([x, out], 1)
         return out
 
     def _create_mask(self, x, out):
@@ -160,7 +175,8 @@ class MaskBlock(nn.Module):
 
 
 class Bottleneck(nn.Module):
-    def __init__(self, n_channels, growth_rate, width=1):
+    """Desenet layers with bottlenecks of fixed size"""
+    def __init__(self, n_channels, growth_rate, efficient, width=1):
         super(Bottleneck, self).__init__()
         inter_channels = int(4 * growth_rate * width)
         self.bn1 = nn.BatchNorm2d(n_channels)
@@ -169,28 +185,41 @@ class Bottleneck(nn.Module):
         self.bn2 = nn.BatchNorm2d(inter_channels)
         self.conv2 = nn.Conv2d(inter_channels, growth_rate, kernel_size=3,
                                padding=1, bias=False)
+        self.efficient = efficient
 
-    def forward(self, x):
-        out = self.conv1(F.relu(self.bn1(x)))
+    def forward(self, *prev_features):
+        bn_function = _bn_function_factory(self.bn1, F.relu, self.conv1)
+        if self.efficient and any(prev_feature.requires_grad for prev_feature in prev_features):
+            out = cp.checkpoint(bn_function, *prev_features)
+        else:
+            out = bn_function(*prev_features)
         out = self.conv2(F.relu(self.bn2(out)))
-        out = torch.cat((x, out), 1)
         return out
 
 
-class SingleLayer(nn.Module):
-    def __init__(self, n_channels, growth_rate):
+class SingleLayer(nn.Module, efficient):
+    """DenseNet layer without bottlenecks"""
+    def __init__(self, n_channels, growth_rate, efficient):
         super(SingleLayer, self).__init__()
         self.bn1 = nn.BatchNorm2d(n_channels)
         self.conv1 = nn.Conv2d(n_channels, growth_rate, kernel_size=3,
                                padding=1, bias=False)
+        self.efficient = efficient
 
-    def forward(self, x):
-        out = self.conv1(F.relu(self.bn1(x)))
-        out = torch.cat((x, out), 1)
+    def forward(self, *prev_features):
+        bn_function = _bn_function_factory(self.bn1, F.relu, self.conv1)
+        if self.efficient and any(prev_feature.requires_grad for prev_feature in prev_features):
+            out = cp.checkpoint(bn_function, *prev_features)
+        else:
+            out = bn_function(*prev_features)
         return out
 
 
 class Transition(nn.Module):
+    """
+    layer of transition between two different dense blocks (nbr_channels reduced by compression rate),
+    the width and height of feature maps will be divided by two
+    """
     def __init__(self, n_channels, n_out_channels):
         super(Transition, self).__init__()
         self.bn1 = nn.BatchNorm2d(n_channels)
@@ -204,7 +233,9 @@ class Transition(nn.Module):
 
 
 class DenseNet(nn.Module):
-    def __init__(self, growth_rate, depth, reduction, n_classes, bottleneck, mask=False, width=1.):
+    """ The DenseNet was modified to consume less memory (at the cost of training speed), this can be disabled by setting
+    efficient to False, see https://github.com/gpleiss/efficient_densenet_pytorch """
+    def __init__(self, growth_rate, depth, reduction, n_classes, bottleneck, mask=False, width=1, efficient=True):
         super(DenseNet, self).__init__()
 
         n_dense_blocks = (depth - 4) // 3
@@ -232,6 +263,7 @@ class DenseNet(nn.Module):
 
         self.bn1 = nn.BatchNorm2d(n_channels)
         self.fc = nn.Linear(n_channels, n_classes)
+        self.efficient = efficient
 
         # Count params that don't exist in blocks (conv1, bn1, fc, trans1, trans2, trans3)
         self.fixed_params = len(self.conv1.weight.view(-1)) + len(self.bn1.weight) + len(self.bn1.bias) + \
@@ -253,19 +285,27 @@ class DenseNet(nn.Module):
         layers = []
         for i in range(int(n_dense_blocks)):
             if bottleneck and mask:
-                layers.append(MaskBlock(n_channels, growth_rate))
+                layers.append(MaskBlock(n_channels, growth_rate, self.efficient))
             elif bottleneck:
-                layers.append(Bottleneck(n_channels, growth_rate, width))
+                layers.append(Bottleneck(n_channels, growth_rate, self.efficient, width))
             else:
-                layers.append(SingleLayer(n_channels, growth_rate))
+                layers.append(SingleLayer(n_channels, growth_rate, self.efficient))
             n_channels += growth_rate
         return nn.Sequential(*layers)
 
+    @staticmethod
+    def forward_dense(dense, init_features):
+        features = [init_features]
+        for name, layer in dense.named_children():
+            new_features = layer(*features)
+            features.append(new_features)
+        return torch.cat(features, 1)
+
     def forward(self, x):
         out = self.conv1(x)
-        out = self.trans1(self.dense1(out))
-        out = self.trans2(self.dense2(out))
-        out = self.dense3(out)
+        out = self.trans1(self.forward_dense(self.dense1, out))
+        out = self.trans2(self.forward_dense(self.dense2, out))
+        out = self.forward_dense(self.dense3, out)
         out = torch.squeeze(F.avg_pool2d(F.relu(self.bn1(out)), 8))
         out = self.fc(out)
         return out

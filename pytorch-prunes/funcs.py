@@ -107,7 +107,10 @@ class Pruner:
 
     @staticmethod
     def compress(model):
-        """removes the pruned channels from the MaskBlocks"""
+        """
+        removes the pruned channels from the MaskBlocks
+        returns, for each layer, a pair containing the number of channels left and the initial number of channels
+        """
         channels_left = []
         for m in model.modules():
             if m._get_name() == 'MaskBlock':
@@ -264,6 +267,68 @@ def get_layer_param(model):
     return sum([reduce(operator.mul, i.size(), 1) for i in model.parameters()])
 
 
+count_ops = 0
+count_params = 0
+
+
+def measure_model(model, height, width):
+    """
+    This function should be called on a compressed model!
+    this function (and the other ones related) were taken from
+    https://github.com/ShichenLiu/CondenseNet/blob/master/utils.py by the authors of
+    "Pruning neural networks: is it time to nip it in the bud?", I tried to add comments here and I adapted it so that
+    it works but I did not change the structure (altough it's not that clean).
+
+    :param model: the model we want to measure the number of operations and parameters from (assumed to take RGB
+    images as input)
+    :param height: the height of the images the model would take as input
+    :param width: the width of the images the model would take as input
+    :return (count_ops, count_params): the number of operations and parameters of the model
+    """
+    global count_ops, count_params
+    count_ops = 0
+    count_params = 0
+    data = Variable(torch.zeros(1, 3, height, width))
+
+    def should_measure(x):
+        return is_leaf(x)
+
+    def modify_forward(model):
+        """
+        modifies the forward pass of the model so as to make it compute the number of operations and parameters in
+        each layer, what the forward attributes previously contained is stored into old_forward attributes
+        """
+        for child in model.children():
+            if should_measure(child):
+                def new_forward(m):
+                    def lambda_forward(x):
+                        measure_layer(m, x)
+                        return m.old_forward(x)
+
+                    return lambda_forward
+
+                child.old_forward = child.forward
+                child.forward = new_forward(child)
+            else:
+                modify_forward(child)
+
+    def restore_forward(model):
+        # replace the forward attribute by the old_forward attribute for every leaf in model
+        for child in model.children():
+            # leaf node
+            if is_leaf(child) and hasattr(child, 'old_forward'):
+                child.forward = child.old_forward
+                child.old_forward = None
+            else:
+                restore_forward(child)
+
+    modify_forward(model)
+    model.forward(data)  # performs the modified forward pass that will count the number of parameters and operations
+    restore_forward(model)
+
+    return count_ops, count_params
+
+
 def measure_layer(layer, x):
     """
     measures the number of operations and parameters of layer given input x and add it to the global variables count_ops
@@ -331,6 +396,10 @@ def measure_layer(layer, x):
     elif type_name in ['BatchNorm2d', 'Dropout2d', 'DropChannel', 'Dropout']:
         delta_params = get_layer_param(layer)
 
+    # used to compute fischer information, to be ignored here
+    elif type_name in ['Identity']:
+        pass
+
     # unknown layer type
     else:
         raise TypeError('unknown layer type: %s' % type_name)
@@ -338,61 +407,6 @@ def measure_layer(layer, x):
     count_ops += delta_ops
     count_params += delta_params
     return
-
-
-def measure_model(model, height, width):
-    """
-    this function (and the other ones related) were taken from
-    https://github.com/ShichenLiu/CondenseNet/blob/master/utils.py by the authors of
-    "Pruning neural networks: is it time to nip it in the bud?", I tried to add comments here and there but did not
-    modify the source code (altough it's not that clean)
-
-    :param model: the model we want to measure the number of operations and parameters from (assumed to take RGB
-    images as input)
-    :param height: the height of the images the model would take as input
-    :param width: the width of the images the model would take as input
-    :return (count_ops, count_params): the number of operations and parameters of the model
-    """
-    count_ops, count_params = 0, 0
-    data = Variable(torch.zeros(1, 3, height, width))
-
-    def should_measure(x):
-        return is_leaf(x) or is_pruned(x)
-
-    def modify_forward(model):
-        """
-        modifies the forward pass of the model so as to make it compute the number of operations and parameters in
-        each layer, what the forward attributes previously contained is stored into old_forward attributes
-        """
-        for child in model.children():
-            if should_measure(child):
-                def new_forward(m):
-                    def lambda_forward(x):
-                        measure_layer(m, x)
-                        return m.old_forward(x)
-
-                    return lambda_forward
-
-                child.old_forward = child.forward
-                child.forward = new_forward(child)
-            else:
-                modify_forward(child)
-
-    def restore_forward(model):
-        # replace the forward attribute by the old_forward attribute for every leaf in model
-        for child in model.children():
-            # leaf node
-            if is_leaf(child) and hasattr(child, 'old_forward'):
-                child.forward = child.old_forward
-                child.old_forward = None
-            else:
-                restore_forward(child)
-
-    modify_forward(model)
-    model.forward(data)  # performs the modified forward pass that will count the number of parameters and operations
-    restore_forward(model)
-
-    return count_ops, count_params
 
 
 def validate(model, valloader, criterion, device, print_freq):
