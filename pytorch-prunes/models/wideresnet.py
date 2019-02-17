@@ -257,7 +257,7 @@ class NetworkBlockBottle(nn.Module):
         layers = []
         for i in range(int(nb_layers)):
             layers.append(
-                block(in_channels if i == 0 else out_channels, out_channels, mid_channels, stride if i == 0 else 1,
+                block(in_channels if i == 0 else out_channels, out_channels, mid_channels[i], stride if i == 0 else 1,
                       drop_rate))
         return nn.Sequential(*layers)
 
@@ -322,27 +322,35 @@ class WideResNet(nn.Module):
 
 class WideResNetBottle(nn.Module):
     """whole WideResNet-40-2 module with bottlenecks"""
-    def __init__(self, depth, widen_factor, num_classes=10, drop_rate=0.0, bottle_mult=0.5):
+    def __init__(self, depth, widen_factor, num_classes=10, drop_rate=0.0, mid_channels=0.5):
+        """
+        the argument mid_channels might be a float scaling factor or a list containing the number of middle channels
+        """
         super(WideResNetBottle, self).__init__()
 
         n_channels = [16, int(16 * widen_factor), int(32 * widen_factor), int(64 * widen_factor)]
 
         assert ((depth - 4) % 6 == 0)
-        n = (depth - 4) / 6
+        n = int((depth - 4) // 6)
+
+        if isinstance(mid_channels, float):  # needs to be turned into a list
+            mid_channels = [int(n_channels[1] * bottle_mult)]*n + [int(n_channels[2] * bottle_mult)]*n + \
+                           [int(n_channels[3] * bottle_mult)]*n
+        else:
+            mid_channels = [int(i) for i in mid_channels]
 
         block = BottleBlock
-
         # 1st conv before any network block
         self.conv1 = nn.Conv2d(3, n_channels[0], kernel_size=3, stride=1,
                                padding=1, bias=False)
         # 1st block
-        self.block1 = NetworkBlockBottle(n, n_channels[0], n_channels[1], int(n_channels[1] * bottle_mult), block, 1,
+        self.block1 = NetworkBlockBottle(n, n_channels[0], n_channels[1], mid_channels[:n], block, 1,
                                          drop_rate)
         # 2nd block
-        self.block2 = NetworkBlockBottle(n, n_channels[1], n_channels[2], int(n_channels[2] * bottle_mult), block, 2,
+        self.block2 = NetworkBlockBottle(n, n_channels[1], n_channels[2], mid_channels[n:2*n], block, 2,
                                          drop_rate)
         # 3rd block
-        self.block3 = NetworkBlockBottle(n, n_channels[2], n_channels[3], int(n_channels[3] * bottle_mult), block, 2,
+        self.block3 = NetworkBlockBottle(n, n_channels[2], n_channels[3], mid_channels[n:3*n], block, 2,
                                          drop_rate)
         # global average pooling and classifier
         self.bn1 = nn.BatchNorm2d(n_channels[3])

@@ -10,6 +10,27 @@ import os
 import seaborn as sns
 from models import *
 from funcs import *
+import pickle
+
+
+def save_nbr_channels(file, model, nbr_prunings, pickle_file_name):
+    """
+    saves a list containing the number of channels per layer as a pickle file
+    :param file: the checkpoint file of the NN
+    :param model: the corresponding model, this model is assumed to have been pruned more than nbr_prunings times
+    :param nbr_prunings: the number of prunings after which we will compute the number of left channels
+    :param pickle_file_name: the name of the pickle file that will contain the data
+    """
+    state = torch.load(os.path.join('checkpoints', f'{file}.t7'))
+    model(torch.rand(1, 3, 32, 32))
+    pruner = Pruner([])
+    pruner._get_masks(model)
+    for channel in state['prune_history'][:nbr_prunings]:
+        pruner.fixed_prune(model, channel, verbose=False)
+    layers = pruner.compress(model)
+    layers = [i for i, _ in layers]  # get rid of initial number of layers
+    with open(pickle_file_name, 'wb') as file:
+        pickle.dump(layers, file)
 
 
 def plot_score(score_dict, metric):
@@ -63,8 +84,8 @@ def plot_channels_left(file, model, nbr_prunings):
     ax[1].set_ylabel('proportion of channels left')
     sns.barplot(x=offset_layer, y=prop_channels_left, ax=ax[1], color='steelblue')
     plt.tight_layout()  # so as to avoid overlaps
-    # plt.show()
-    plt.savefig('/home/nathan/Documents/TFE/pytorch-prunes/plots/WRN_fischer_retrain_500.eps')
+    plt.show()
+    # plt.savefig('/home/nathan/Documents/TFE/pytorch-prunes/plots/WRN_l1_1000.eps')
 
 
 def count_nbr_params_and_flops(file, model, nbr_prunings):
@@ -75,7 +96,6 @@ def count_nbr_params_and_flops(file, model, nbr_prunings):
     :param model: the corresponding model, this model is assumed to have been pruned more than nbr_prunings times
     :param nbr_prunings: the number of prunings after which we will compute the number of params and flops
     """
-
     state = torch.load(os.path.join('checkpoints', f'{file}.t7'))
     model(torch.rand(1, 3, 32, 32))
     pruner = Pruner([])
@@ -89,10 +109,13 @@ def count_nbr_params_and_flops(file, model, nbr_prunings):
 
 
 if __name__ == "__main__":
-    count_nbr_params_and_flops("res-40-2-retrain-1299-pruned", DenseNet(12, 40, 0.5, 10, True, mask=1), 0)
+    # save_nbr_channels("res-40-2-random_1299_prunes", WideResNet(40, 2, mask=1), 900, "nbr_channels/res-40-2_random_900.pickle")
 
-    # plot_score({"random pruning": "res-40-2-random_1299_prunes",
-    #             "fisher pruning": "res-40-2-fischer_1299_prunes",
-    #             "fischer_prune_scratch_repeat": "res-40-2-retrain-1299-pruned"},
-    #            "param_history")
+    # plot_channels_left("res-40-2-l1_1299_prunes", WideResNet(40, 2, mask=1), 1000)
+
+    pruning_dict = {"random pruning": "res-40-2-random_1299_prunes",
+                    "fisher pruning": "res-40-2-fischer_1299_prunes",
+                    "fischer_prune_scratch_repeat": "res-40-2-retrain-1299-pruned",
+                    "l1 pruning": "res-40-2-l1_1299_prunes"}
+    plot_score(pruning_dict, "param_history")
 

@@ -176,14 +176,13 @@ class MaskBlock(nn.Module):
 
 class Bottleneck(nn.Module):
     """Desenet layers with bottlenecks of fixed size"""
-    def __init__(self, n_channels, growth_rate, efficient, width=1):
+    def __init__(self, n_channels, growth_rate, efficient, mid_channels):
         super(Bottleneck, self).__init__()
-        inter_channels = int(4 * growth_rate * width)
         self.bn1 = nn.BatchNorm2d(n_channels)
-        self.conv1 = nn.Conv2d(n_channels, inter_channels, kernel_size=1,
+        self.conv1 = nn.Conv2d(n_channels, mid_channels, kernel_size=1,
                                bias=False)
-        self.bn2 = nn.BatchNorm2d(inter_channels)
-        self.conv2 = nn.Conv2d(inter_channels, growth_rate, kernel_size=3,
+        self.bn2 = nn.BatchNorm2d(mid_channels)
+        self.conv2 = nn.Conv2d(mid_channels, growth_rate, kernel_size=3,
                                padding=1, bias=False)
         self.efficient = efficient
 
@@ -197,7 +196,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-class SingleLayer(nn.Module, efficient):
+class SingleLayer(nn.Module):
     """DenseNet layer without bottlenecks"""
     def __init__(self, n_channels, growth_rate, efficient):
         super(SingleLayer, self).__init__()
@@ -235,35 +234,36 @@ class Transition(nn.Module):
 class DenseNet(nn.Module):
     """ The DenseNet was modified to consume less memory (at the cost of training speed), this can be disabled by setting
     efficient to False, see https://github.com/gpleiss/efficient_densenet_pytorch """
-    def __init__(self, growth_rate, depth, reduction, n_classes, bottleneck, mask=False, width=1, efficient=True):
+    def __init__(self, growth_rate, depth, reduction, n_classes, bottleneck, mask=False, mid_channels=1.,
+                 efficient=True):
         super(DenseNet, self).__init__()
+        self.efficient = efficient
 
         n_dense_blocks = (depth - 4) // 3
-        if bottleneck:
+        if bottleneck:  # because we have blocks of depth 2 (1*1 then 3*3) instead of blocks of depth 1 (3*3)
             n_dense_blocks //= 2
 
         n_channels = 2 * growth_rate
         self.conv1 = nn.Conv2d(3, n_channels, kernel_size=3, padding=1,
                                bias=False)
 
-        self.dense1 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, width)
+        self.dense1 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, mid_channels)
         n_channels += n_dense_blocks * growth_rate
         n_out_channels = int(math.floor(n_channels * reduction))
         self.trans1 = Transition(n_channels, n_out_channels)
 
         n_channels = n_out_channels
-        self.dense2 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, width)
+        self.dense2 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, mid_channels)
         n_channels += n_dense_blocks * growth_rate
         n_out_channels = int(math.floor(n_channels * reduction))
         self.trans2 = Transition(n_channels, n_out_channels)
 
         n_channels = n_out_channels
-        self.dense3 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, width)
+        self.dense3 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, mid_channels)
         n_channels += n_dense_blocks * growth_rate
 
         self.bn1 = nn.BatchNorm2d(n_channels)
         self.fc = nn.Linear(n_channels, n_classes)
-        self.efficient = efficient
 
         # Count params that don't exist in blocks (conv1, bn1, fc, trans1, trans2, trans3)
         self.fixed_params = len(self.conv1.weight.view(-1)) + len(self.bn1.weight) + len(self.bn1.bias) + \
@@ -281,13 +281,20 @@ class DenseNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
-    def _make_dense(self, n_channels, growth_rate, n_dense_blocks, bottleneck, mask=False, width=1):
+    def _make_dense(self, n_channels, growth_rate, n_dense_blocks, bottleneck, mask=False, mid_channels=1.):
+        """
+        mid_channels might be a float (constant scaling factor among all channels or a list of the number of channels
+        per layer)
+        """
         layers = []
         for i in range(int(n_dense_blocks)):
             if bottleneck and mask:
                 layers.append(MaskBlock(n_channels, growth_rate, self.efficient))
             elif bottleneck:
-                layers.append(Bottleneck(n_channels, growth_rate, self.efficient, width))
+                if isinstance(mid_channels, float):
+                    layers.append(Bottleneck(n_channels, growth_rate, self.efficient, int(4*growth_rate*mid_channels)))
+                else:
+                    layers.append(Bottleneck(n_channels, growth_rate, self.efficient, int(mid_channels[i])))
             else:
                 layers.append(SingleLayer(n_channels, growth_rate, self.efficient))
             n_channels += growth_rate

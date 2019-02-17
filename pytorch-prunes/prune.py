@@ -39,6 +39,8 @@ parser.add_argument('--width', default=2.0, type=float, metavar='D')
 parser.add_argument('--depth', default=40, type=int, metavar='W')
 parser.add_argument('--growth', default=12, type=int, help='growth rate of densenet')
 parser.add_argument('--transition_rate', default=0.5, type=float, help='transition rate of densenet')
+parser.add_argument('--fast_train', '-ft', action='store_true', help='trains the denseNet faster at the cost of '
+                                                                    'more memory')
 
 args = parser.parse_args()
 print(args)
@@ -50,7 +52,8 @@ device = torch.device("cuda:%s" % '0' if torch.cuda.is_available() else "cpu")
 if args.net == 'res':
     model = WideResNet(args.depth, args.width, mask=args.mask)
 elif args.net == 'dense':
-    model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mask=args.mask)
+    model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mask=args.mask,
+                     efficient=not args.fast_train)
 else:
     raise ValueError('pick a valid net')
 

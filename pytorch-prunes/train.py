@@ -5,10 +5,9 @@ import json
 import os
 import torch.optim.lr_scheduler as lr_scheduler
 import torch.utils.model_zoo as model_zoo
-
 from models import *
-
 from funcs import *
+import pickle
 
 
 parser = argparse.ArgumentParser(description='Training')
@@ -35,13 +34,18 @@ parser.add_argument('--deploy', '-de', action='store_true', help='deploy a model
 parser.add_argument('--params_left', '-pl', default=0, type=int, help='prune til...')
 parser.add_argument('--net', choices=['res', 'dense'], default='res')
 parser.add_argument('--save_every', default=50, type=int, help='save model every X EPOCHS')
+parser.add_argument('--list_channels', default=None, help='pickle file containing the number of channels to use for '
+                                                          'every layer in the network as a python list')
+parser.add_argument('--channels_factor', default=1., type=float, help='float by which to multiply the number of '
+                                                                      'channels')
 
 # Net specific
 parser.add_argument('--depth', '-d', default=40, type=int, metavar='D', help='depth of wideresnet/densenet')
 parser.add_argument('--width', '-w', default=2.0, type=float, metavar='W', help='width of wideresnet')
 parser.add_argument('--growth', default=12, type=int, help='growth rate of densenet')
 parser.add_argument('--transition_rate', default=0.5, type=float, help='transition rate of densenet')
-
+parser.add_argument('--fast_train', '-ft', action='store_true', help='trains the denseNet faster at the cost of '
+                                                                    'more memory')
 
 # Uniform bottlenecks
 parser.add_argument('--bottle', action='store_true', help='Linearly scale bottlenecks')
@@ -56,16 +60,27 @@ print(args)
 os.environ["CUDA_VISIBLE_DEVICES"] = args.GPU
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+# loads ans scale the number of bottleneck channels per layer
+list_channels = None
+if args.list_channels is not None:
+    with open(os.path.join('nbr_channels', f"{args.list_channels}.pickle"), 'rb') as file:
+        list_channels = pickle.load(file)
+        list_channels = [i*args.channels_factor for i in list_channels]
+
+
 if args.net == 'res':
     if not args.bottle:
         model = WideResNet(args.depth, args.width, mask=args.mask)
     else:
-        model = WideResNetBottle(args.depth, args.width, bottle_mult=args.bottle_mult)
+        model = WideResNetBottle(args.depth, args.width, mid_channels=args.bottle_mult if list_channels is None else
+        list_channels)
 elif args.net == 'dense':
     if not args.bottle:
-        model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mask=args.mask)
+        model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mask=args.mask,
+                         efficient=not args.fast_train)
     else:
-        model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, width=args.bottle_mult)
+        model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mid_channels=args.bottle_mult if
+        list_channels is None else list_channels, efficient=not args.fast_train)
 else:
     raise ValueError('pick a valid net')
 

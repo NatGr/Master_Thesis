@@ -1,7 +1,7 @@
 # These files are based on the paper [Pruning neural networks: is it time to nip it in the bud?][https://arxiv.org/abs/1810.04622)]
 ## Below are the modifications we made to the original
 
-To perform several iterations of trainig from scratch and pruing, one must (example for a wideresnet-40-2 and fischer pruning):
+### To perform several iterations of trainig from scratch and pruing, one must (example for a wideresnet-40-2 and fischer pruning):
 1. train the initial model
 ```
 python train.py --net='res' --depth=40 --width=2.0 --data_loc=<path-to-data> --save_file='res'
@@ -21,6 +21,14 @@ python prune.py --net='res' --data_loc=<path-to-data> --resume_ckpt='pruned_then
 ```
 4. repeat 3 and 4 and then perform 3 one final time.
 
+### Densenets now by default use the implemtation of "Memory-Efficient Implementation of DenseNets" (Pleiss et al. 2017)
+this can be disabled by setting the flag "fast_train" in both train.py and prune.py in which case training will be faster at the cost of more memory consumption
+
+### new flags:
+    1. --list_channels in train.py: pickle file containing the number of channels to use for every layer in the network (python list)
+        this is to be used with the bottle argument
+       --channels_factor in train.py: float by which to multiply the number of channels, 
+       i.e. list_channels == [1,1,1] and channels_factor == 2 is the same as list_channels == [2,2,2] and channels_factor == 1
 
 The following is their original README file
 ----
