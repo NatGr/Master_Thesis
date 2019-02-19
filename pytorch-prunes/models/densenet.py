@@ -82,7 +82,7 @@ class MaskBlock(nn.Module):
         self.running_fisher = 0
 
     def forward(self, *prev_features):
-        bn_function = _bn_function_factory(self.norm1, F.relu, self.conv1)
+        bn_function = _bn_function_factory(self.bn1, F.relu, self.conv1)
         if self.efficient and any(prev_feature.requires_grad for prev_feature in prev_features):
             out = cp.checkpoint(bn_function, *prev_features)
         else:
@@ -91,7 +91,7 @@ class MaskBlock(nn.Module):
         if self.mask is not None:
             out = out * self.mask[None, :, None, None]
         else:
-            self._create_mask(x, out)
+            self._create_mask(torch.cat(prev_features, 1), out)  # prev_features
         out = self.activation(out)
         self.act = out
 
@@ -305,6 +305,96 @@ class DenseNet(nn.Module):
         features = [init_features]
         for name, layer in dense.named_children():
             new_features = layer(*features)
+            features.append(new_features)
+        return torch.cat(features, 1)
+
+    def forward(self, x):
+        out = self.conv1(x)
+        out = self.trans1(self.forward_dense(self.dense1, out))
+        out = self.trans2(self.forward_dense(self.dense2, out))
+        out = self.forward_dense(self.dense3, out)
+        out = torch.squeeze(F.avg_pool2d(F.relu(self.bn1(out)), 8))
+        out = self.fc(out)
+        return out
+
+
+class NotSoDenseNet1(nn.Module):
+    """
+    variation of the DenseNet in which the input of layer i is the concatenation of the k previous outputs
+     but the output of block i is still the concatenation of the outputs of all the layers of block i
+     """
+    def __init__(self, growth_rate, depth, reduction, n_classes, bottleneck, k, mask=False, mid_channels=1.,
+                 efficient=True):
+        super(NotSoDenseNet1, self).__init__()
+        self.efficient = efficient
+        self.k = k
+
+        n_dense_blocks = (depth - 4) // 3
+        if bottleneck:  # because we have blocks of depth 2 (1*1 then 3*3) instead of blocks of depth 1 (3*3)
+            n_dense_blocks //= 2
+
+        n_channels = 2 * growth_rate
+        self.conv1 = nn.Conv2d(3, n_channels, kernel_size=3, padding=1, bias=False)
+
+        self.dense1 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, mid_channels)
+        n_channels += n_dense_blocks * growth_rate
+        n_out_channels = int(math.floor(n_channels * reduction))
+        self.trans1 = Transition(n_channels, n_out_channels)
+
+        n_channels = n_out_channels
+        self.dense2 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, mid_channels)
+        n_channels += n_dense_blocks * growth_rate
+        n_out_channels = int(math.floor(n_channels * reduction))
+        self.trans2 = Transition(n_channels, n_out_channels)
+
+        n_channels = n_out_channels
+        self.dense3 = self._make_dense(n_channels, growth_rate, n_dense_blocks, bottleneck, mask, mid_channels)
+        n_channels += n_dense_blocks * growth_rate
+
+        self.bn1 = nn.BatchNorm2d(n_channels)
+        self.fc = nn.Linear(n_channels, n_classes)
+
+        # Count params that don't exist in blocks (conv1, bn1, fc, trans1, trans2, trans3)
+        self.fixed_params = len(self.conv1.weight.view(-1)) + len(self.bn1.weight) + len(self.bn1.bias) + \
+                            len(self.fc.weight.view(-1)) + len(self.fc.bias)
+        self.fixed_params += len(self.trans1.conv1.weight.view(-1)) + 2 * len(self.trans1.bn1.weight)
+        self.fixed_params += len(self.trans2.conv1.weight.view(-1)) + 2 * len(self.trans2.bn1.weight)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.bias.data.zero_()
+
+    def _make_dense(self, n_channels, growth_rate, n_dense_blocks, bottleneck, mask=False, mid_channels=1.):
+        """
+        mid_channels might be a float (constant scaling factor among all channels or a list of the number of channels
+        per layer)
+        """
+        layers = []
+        channels_hist = [n_channels]
+        for i in range(int(n_dense_blocks)):
+            if bottleneck and mask:
+                layers.append(MaskBlock(n_channels, growth_rate, self.efficient))
+            elif bottleneck:
+                if isinstance(mid_channels, float):
+                    layers.append(Bottleneck(n_channels, growth_rate, self.efficient, int(4*growth_rate*mid_channels)))
+                else:
+                    layers.append(Bottleneck(n_channels, growth_rate, self.efficient, int(mid_channels[i])))
+            else:
+                layers.append(SingleLayer(n_channels, growth_rate, self.efficient))
+            channels_hist.append(growth_rate)
+            n_channels = sum(channels_hist[-self.k:])
+        return nn.Sequential(*layers)
+
+    def forward_dense(self, dense, init_features):
+        features = [init_features]
+        for name, layer in dense.named_children():
+            new_features = layer(*features[-self.k:])
             features.append(new_features)
         return torch.cat(features, 1)
 

@@ -32,7 +32,7 @@ parser.add_argument('--prune_train_prune', action='store_true', help='to use whe
 parser.add_argument('--mask', '-m', type=int, help='mask mode', default=0)
 parser.add_argument('--deploy', '-de', action='store_true', help='deploy a model whose structure was previously pruned')
 parser.add_argument('--params_left', '-pl', default=0, type=int, help='prune til...')
-parser.add_argument('--net', choices=['res', 'dense'], default='res')
+parser.add_argument('--net', choices=['res', 'dense', 'notsodense1'], default='res')
 parser.add_argument('--save_every', default=50, type=int, help='save model every X EPOCHS')
 parser.add_argument('--list_channels', default=None, help='pickle file containing the number of channels to use for '
                                                           'every layer in the network as a python list')
@@ -46,6 +46,8 @@ parser.add_argument('--growth', default=12, type=int, help='growth rate of dense
 parser.add_argument('--transition_rate', default=0.5, type=float, help='transition rate of densenet')
 parser.add_argument('--fast_train', '-ft', action='store_true', help='trains the denseNet faster at the cost of '
                                                                     'more memory')
+parser.add_argument('--notsodense_k', default=3, type=int, help='the number of previous layers whose output will '
+                                                                'be used as input for the next layer in a block')
 
 # Uniform bottlenecks
 parser.add_argument('--bottle', action='store_true', help='Linearly scale bottlenecks')
@@ -81,6 +83,14 @@ elif args.net == 'dense':
     else:
         model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mid_channels=args.bottle_mult if
         list_channels is None else list_channels, efficient=not args.fast_train)
+elif args.net == 'notsodense1':
+    if not args.bottle:
+        model = NotSoDenseNet1(args.growth, args.depth, args.transition_rate, 10, True, args.notsodense_k,
+                              mask=args.mask, efficient=not args.fast_train)
+    else:
+        model = NotSoDenseNet1(args.growth, args.depth, args.transition_rate, 10, True, args.notsodense_k,
+                              mid_channels=args.bottle_mult if list_channels is None else list_channels,
+                              efficient=not args.fast_train)
 else:
     raise ValueError('pick a valid net')
 
