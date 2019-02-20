@@ -60,9 +60,9 @@ if not os.path.exists('checkpoints/'):
     os.makedirs('checkpoints/')
 
 args = parser.parse_args()
-print(args)
-print("using gpu" if torch.cuda.is_available() else "using cpu")
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 # loads ans scale the number of bottleneck channels per layer
 list_channels = None
