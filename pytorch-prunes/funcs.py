@@ -378,7 +378,6 @@ def measure_layer(layer, x):
         out_w = int((in_w + 2 * layer.padding - layer.kernel_size) / layer.stride + 1)
         out_h = int((in_w + 2 * layer.padding - layer.kernel_size) / layer.stride + 1)
         delta_ops = x.size()[0] * x.size()[1] * out_w * out_h * kernel_ops
-        print(delta_ops)
         delta_params = get_layer_param(layer)
 
     elif type_name in ['AdaptiveAvgPool2d']:
@@ -396,8 +395,9 @@ def measure_layer(layer, x):
     elif type_name in ['BatchNorm2d', 'Dropout2d', 'DropChannel', 'Dropout']:
         delta_params = get_layer_param(layer)
 
-    # used to compute fischer information, to be ignored here
-    elif type_name in ['Identity']:
+    # Identity used to compute fischer information, Zero(Make) used when layer gets all his channels pruned;
+    # they are to be ignored here
+    elif type_name in ['Identity', 'Zero', 'ZeroMake']:
         pass
 
     # unknown layer type

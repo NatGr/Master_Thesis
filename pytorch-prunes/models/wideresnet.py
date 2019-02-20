@@ -1,7 +1,6 @@
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class Identity(nn.Module):
@@ -256,9 +255,10 @@ class NetworkBlockBottle(nn.Module):
     def _make_layer(self, block, in_channels, out_channels, mid_channels, nb_layers, stride, drop_rate):
         layers = []
         for i in range(int(nb_layers)):
-            layers.append(
-                block(in_channels if i == 0 else out_channels, out_channels, mid_channels[i], stride if i == 0 else 1,
-                      drop_rate))
+            if mid_channels[i] != 0:
+                layers.append(
+                    block(in_channels if i == 0 else out_channels, out_channels, mid_channels[i], stride if i == 0 else
+                    1, drop_rate))
         return nn.Sequential(*layers)
 
     def forward(self, x):
@@ -292,6 +292,7 @@ class WideResNet(nn.Module):
         # global average pooling and classifier
         self.bn1 = nn.BatchNorm2d(n_channels[3])
         self.relu = nn.ReLU(inplace=True)
+        self.avg_pool = nn.AvgPool2d(8)
         self.fc = nn.Linear(n_channels[3], num_classes)
         self.nChannels = n_channels[3]
 
@@ -315,7 +316,7 @@ class WideResNet(nn.Module):
         out = self.block2(out)
         out = self.block3(out)
         out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
+        out = self.avg_pool(out)
         out = out.view(-1, self.nChannels)
         return self.fc(out)
 
@@ -355,6 +356,7 @@ class WideResNetBottle(nn.Module):
         # global average pooling and classifier
         self.bn1 = nn.BatchNorm2d(n_channels[3])
         self.relu = nn.ReLU(inplace=True)
+        self.avg_pool = nn.AvgPool2d(8)
         self.fc = nn.Linear(n_channels[3], num_classes)
         self.nChannels = n_channels[3]
 
@@ -374,6 +376,6 @@ class WideResNetBottle(nn.Module):
         out = self.block2(out)
         out = self.block3(out)
         out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
+        out = self.avg_pool(out)
         out = out.view(-1, self.nChannels)
         return self.fc(out)

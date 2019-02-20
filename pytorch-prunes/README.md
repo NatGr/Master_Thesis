@@ -29,6 +29,7 @@ this can be disabled by setting the flag "fast_train" in both train.py and prune
         this is to be used with the bottle argument
        --channels_factor in train.py: float by which to multiply the number of channels, 
        i.e. list_channels == [1,1,1] and channels_factor == 2 is the same as list_channels == [2,2,2] and channels_factor == 1
+    2. --lr_type to give the possibility to use cosine learning rate
 
 The following is their original README file
 ----

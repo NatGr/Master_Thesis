@@ -11,7 +11,6 @@ from models import *
 
 parser = argparse.ArgumentParser(description='Pruning')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N', help='number of data loading workers')
-parser.add_argument('--GPU', default='0', type=str, help='GPU to use')
 parser.add_argument('--save_file', default='wrn16_2_p', type=str, help='save file for checkpoints')
 parser.add_argument('--print_freq', '-p', default=10, type=int, metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint or pruned model retrained '
@@ -44,8 +43,7 @@ parser.add_argument('--fast_train', '-ft', action='store_true', help='trains the
 
 args = parser.parse_args()
 print(args)
-os.environ["CUDA_VISIBLE_DEVICES"] = args.GPU
-
+print("using gpu" if torch.cuda.is_available() else "using cpu")
 device = torch.device("cuda:%s" % '0' if torch.cuda.is_available() else "cpu")
 
 

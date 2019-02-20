@@ -13,9 +13,10 @@ from funcs import *
 import pickle
 
 
-def save_nbr_channels(file, model, nbr_prunings, pickle_file_name):
+def save_nbr_channels_and_params(file, model, nbr_prunings, pickle_file_name):
     """
-    saves a list containing the number of channels per layer as a pickle file
+    saves a tuple (as a pickle file) whose first elements is a list containing the number of channels per layer,
+    second element is the number of parameters in the network and third element the number of FLOPS
     :param file: the checkpoint file of the NN
     :param model: the corresponding model, this model is assumed to have been pruned more than nbr_prunings times
     :param nbr_prunings: the number of prunings after which we will compute the number of left channels
@@ -24,31 +25,48 @@ def save_nbr_channels(file, model, nbr_prunings, pickle_file_name):
     state = torch.load(os.path.join('checkpoints', f'{file}.t7'))
     model(torch.rand(1, 3, 32, 32))
     pruner = Pruner([])
-    pruner._get_masks(model)
-    for channel in state['prune_history'][:nbr_prunings]:
-        pruner.fixed_prune(model, channel, verbose=False)
+    if nbr_prunings != 0:  # so that it works with model trained without pruning as well
+        pruner._get_masks(model)
+        for channel in state['prune_history'][:nbr_prunings]:
+            pruner.fixed_prune(model, channel, verbose=False)
     layers = pruner.compress(model)
     layers = [i for i, _ in layers]  # get rid of initial number of layers
+    count_ops, count_params = measure_model(model, 32, 32)
     with open(pickle_file_name, 'wb') as file:
-        pickle.dump(layers, file)
+        pickle.dump((layers, count_ops, count_params), file)
 
 
-def plot_score(score_dict, metric):
+def plot_score(pruning_score_dict, scratch_score_dict, metric):
     """
     plot score evolution wrt pruning from checkpoint files
 
-    :param score_dict: dict whose keys are the names of the functions to plot and values are the name of the file
-    laying in the checkpoint folder containing the scores (without the .t7 extension)
+    :param pruning_score_dict: dict whose keys are the names of the functions to plot and values are the name of the
+    file laying in the checkpoint folder containing the scores (without the .t7 extension)
+    :param scratch_score_dict:  dict whose keys are the names of the points to plot and values are the names of 2 files,
+    one containing the checkpoint of the trained model from scratch and one the number of parameters
     :param metric: the name of the metric to use on the x-axis (must be a key of the checkpoint file)
     """
     fig, ax = plt.subplots()
+    if metric == "param_history":
+        x_offset = 2  # used in scratch_score_dict
+        x_label = "nbr of parameters"
+    else:
+        x_offset = 1
+        x_label = "nbr of FLOPS"
+
     ax.set_title('Evolution of the test error', fontsize=15, fontweight='bold')
-    ax.set_xlabel(metric)
+    ax.set_xlabel(x_label)
     ax.set_ylabel('test error')
 
-    for name, file in score_dict.items():
+    for name, file in pruning_score_dict.items():
         data = torch.load(os.path.join('checkpoints', f'{file}.t7'))
         plt.plot(data[metric], data["error_history"], label=name)
+
+    for name, (file_hist, file_pf) in scratch_score_dict.items():
+        score = torch.load(os.path.join('checkpoints', f'{file_hist}.t7'))["error_history"][-1]
+        with open(os.path.join('nbr_channels', f"{file_pf}.pickle"), 'rb') as file:
+            x_data = pickle.load(file)[x_offset]
+        plt.plot(x_data, score, label=name, marker='o')
 
     ax.legend(loc='upper right')
     ax.grid(True)
@@ -99,23 +117,29 @@ def count_nbr_params_and_flops(file, model, nbr_prunings):
     state = torch.load(os.path.join('checkpoints', f'{file}.t7'))
     model(torch.rand(1, 3, 32, 32))
     pruner = Pruner([])
-    pruner._get_masks(model)
-    for channel in state['prune_history'][:nbr_prunings]:
-        pruner.fixed_prune(model, channel, verbose=False)
+    if nbr_prunings != 0:
+        pruner._get_masks(model)
+        for channel in state['prune_history'][:nbr_prunings]:
+            pruner.fixed_prune(model, channel, verbose=False)
     pruner.compress(model)
     count_ops, count_params = measure_model(model, 32, 32)
     print(f"{count_ops :.2E} FLOPS")
-    print(f"{count_params} params ({pruner.get_cost(model) + model.fixed_params}) from their computations")
+    print(f"{count_params} params")
 
 
 if __name__ == "__main__":
-    # save_nbr_channels("res-40-2-random_1299_prunes", WideResNet(40, 2, mask=1), 900, "nbr_channels/res-40-2_random_900.pickle")
+    save_nbr_channels_and_params("res-40-2-fischer_1299_prunes", WideResNet(40, 2, mask=1), 1100, "nbr_channels/res-40-2_fisher_1100.pickle")
 
     # plot_channels_left("res-40-2-l1_1299_prunes", WideResNet(40, 2, mask=1), 1000)
 
     pruning_dict = {"random pruning": "res-40-2-random_1299_prunes",
                     "fisher pruning": "res-40-2-fischer_1299_prunes",
                     "fischer_prune_scratch_repeat": "res-40-2-retrain-1299-pruned",
-                    "l1 pruning": "res-40-2-l1_1299_prunes"}
-    plot_score(pruning_dict, "param_history")
+                    "l1 pruning": "res-40-2-l1_1299_prunes",
+                    "densenet-fisher": "dense-100-fisher-2600_2000_prunes"}
+    scratch_dict = {"scratch fisher 900 channels": ("res-40-2-scratch-fisher-900", "res-40-2_fisher_900"),
+                    "scratch l1 900 channels": ("res-40-2-scratch-l1-900", "res-40-2_l1_900"),
+                    "scratch random 900 channels": ("res-40-2-scratch-random-900", "res-40-2_random_900"),
+                    "notsodense": ("notsodense1-100-k=3", "notsodense1-100-k=3_0")}
+    # plot_score(pruning_dict, scratch_dict, "param_history")
 

@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-import torch.nn.functional as F
 from torch.autograd import Variable
 
 import torchvision.datasets as dset
@@ -59,9 +58,11 @@ class MaskBlock(nn.Module):
         super(MaskBlock, self).__init__()
         inter_channels = 4 * growth_rate
         self.bn1 = nn.BatchNorm2d(n_channels)
+        self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv2d(n_channels, inter_channels, kernel_size=1,
                                bias=False)
         self.bn2 = nn.BatchNorm2d(inter_channels)
+        self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(inter_channels, growth_rate, kernel_size=3,
                                padding=1, bias=False)
 
@@ -82,12 +83,12 @@ class MaskBlock(nn.Module):
         self.running_fisher = 0
 
     def forward(self, *prev_features):
-        bn_function = _bn_function_factory(self.bn1, F.relu, self.conv1)
+        bn_function = _bn_function_factory(self.bn1, self.relu1, self.conv1)
         if self.efficient and any(prev_feature.requires_grad for prev_feature in prev_features):
             out = cp.checkpoint(bn_function, *prev_features)
         else:
             out = bn_function(*prev_features)
-        out = F.relu(self.bn2(out))
+        out = self.relu2(self.bn2(out))
         if self.mask is not None:
             out = out * self.mask[None, :, None, None]
         else:
@@ -144,7 +145,7 @@ class MaskBlock(nn.Module):
         print(f"{middle_dim} channels left out of {full_middle_dim}")
 
         if middle_dim is not 0:
-            conv1 = nn.Conv2d(self.in_channels, middle_dim, kernel_size=3, stride=1, bias=False)
+            conv1 = nn.Conv2d(self.in_channels, middle_dim, kernel_size=1, stride=1, bias=False)
             conv1.weight = nn.Parameter(self.conv1.weight[self.mask == 1, :, :, :])
 
             # Batch norm 2 changes
@@ -179,20 +180,22 @@ class Bottleneck(nn.Module):
     def __init__(self, n_channels, growth_rate, efficient, mid_channels):
         super(Bottleneck, self).__init__()
         self.bn1 = nn.BatchNorm2d(n_channels)
+        self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv2d(n_channels, mid_channels, kernel_size=1,
                                bias=False)
         self.bn2 = nn.BatchNorm2d(mid_channels)
+        self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(mid_channels, growth_rate, kernel_size=3,
                                padding=1, bias=False)
         self.efficient = efficient
 
     def forward(self, *prev_features):
-        bn_function = _bn_function_factory(self.bn1, F.relu, self.conv1)
+        bn_function = _bn_function_factory(self.bn1, self.relu1, self.conv1)
         if self.efficient and any(prev_feature.requires_grad for prev_feature in prev_features):
             out = cp.checkpoint(bn_function, *prev_features)
         else:
             out = bn_function(*prev_features)
-        out = self.conv2(F.relu(self.bn2(out)))
+        out = self.conv2(self.relu2(self.bn2(out)))
         return out
 
 
@@ -201,12 +204,13 @@ class SingleLayer(nn.Module):
     def __init__(self, n_channels, growth_rate, efficient):
         super(SingleLayer, self).__init__()
         self.bn1 = nn.BatchNorm2d(n_channels)
+        self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv2d(n_channels, growth_rate, kernel_size=3,
                                padding=1, bias=False)
         self.efficient = efficient
 
     def forward(self, *prev_features):
-        bn_function = _bn_function_factory(self.bn1, F.relu, self.conv1)
+        bn_function = _bn_function_factory(self.bn1, self.relu1, self.conv1)
         if self.efficient and any(prev_feature.requires_grad for prev_feature in prev_features):
             out = cp.checkpoint(bn_function, *prev_features)
         else:
@@ -222,12 +226,14 @@ class Transition(nn.Module):
     def __init__(self, n_channels, n_out_channels):
         super(Transition, self).__init__()
         self.bn1 = nn.BatchNorm2d(n_channels)
+        self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv2d(n_channels, n_out_channels, kernel_size=1,
                                bias=False)
+        self.avg_pool = nn.AvgPool2d(2)
 
     def forward(self, x):
-        out = self.conv1(F.relu(self.bn1(x)))
-        out = F.avg_pool2d(out, 2)
+        out = self.conv1(self.relu1(self.bn1(x)))
+        out = self.avg_pool(out)
         return out
 
 
@@ -263,6 +269,8 @@ class DenseNet(nn.Module):
         n_channels += n_dense_blocks * growth_rate
 
         self.bn1 = nn.BatchNorm2d(n_channels)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.avg_pool = nn.AvgPool2d(8)
         self.fc = nn.Linear(n_channels, n_classes)
 
         # Count params that don't exist in blocks (conv1, bn1, fc, trans1, trans2, trans3)
@@ -313,7 +321,7 @@ class DenseNet(nn.Module):
         out = self.trans1(self.forward_dense(self.dense1, out))
         out = self.trans2(self.forward_dense(self.dense2, out))
         out = self.forward_dense(self.dense3, out)
-        out = torch.squeeze(F.avg_pool2d(F.relu(self.bn1(out)), 8))
+        out = torch.squeeze(self.avg_pool(self.relu1(self.bn1(out))))
         out = self.fc(out)
         return out
 
@@ -352,6 +360,8 @@ class NotSoDenseNet1(nn.Module):
         n_channels += n_dense_blocks * growth_rate
 
         self.bn1 = nn.BatchNorm2d(n_channels)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.avg_pool = nn.AvgPool2d(8)
         self.fc = nn.Linear(n_channels, n_classes)
 
         # Count params that don't exist in blocks (conv1, bn1, fc, trans1, trans2, trans3)
@@ -403,6 +413,6 @@ class NotSoDenseNet1(nn.Module):
         out = self.trans1(self.forward_dense(self.dense1, out))
         out = self.trans2(self.forward_dense(self.dense2, out))
         out = self.forward_dense(self.dense3, out)
-        out = torch.squeeze(F.avg_pool2d(F.relu(self.bn1(out)), 8))
+        out = torch.squeeze(self.avg_pool(self.relu1(self.bn1(out))))
         out = self.fc(out)
         return out
