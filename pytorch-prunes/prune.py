@@ -33,7 +33,7 @@ parser.add_argument('--base_model', default='base_model', type=str, help='basemo
 parser.add_argument('--val_every', default=1, type=int, help='val model every X EPOCHS')
 parser.add_argument('--mask', default=1, type=int, help='Mask type')
 parser.add_argument('--l1_prune', default=False, type=bool, help='Prune via l1 norm')
-parser.add_argument('--net', default='dense', type=str, help='dense, res')
+parser.add_argument('--net', default='res', type=str, help='dense, res')
 parser.add_argument('--width', default=2.0, type=float, metavar='D')
 parser.add_argument('--depth', default=40, type=int, metavar='W')
 parser.add_argument('--growth', default=12, type=int, help='growth rate of densenet')

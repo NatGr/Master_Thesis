@@ -4,7 +4,7 @@
 
 #python train.py --net='res' --save_file='res-40-2-scratch-fisher-1100' --print_freq=900 --depth=40 --width=2.0 --list_channels='res-40-2_fisher_1100' --bottle
 
-python train.py --net='dense' --depth=100 --save_file='dense-100-cosine' --no_epochs 300 -b 64 --epoch_step '[150,225]' --weight_decay 0.0001 --lr_decay_ratio 0.1 --print_freq=950 --lr_type='cosine'
+#python train.py --net='dense' --depth=100 --save_file='dense-100-cosine' --no_epochs 300 -b 64 --epoch_step '[150,225]' --weight_decay 0.0001 --lr_decay_ratio 0.1 --print_freq=950 --lr_type='cosine'
 
 python prune.py --net='res' --base_model='res-40-2_2' --save_file='res-40-2_2_fisher' --print_freq=900 --save_every=300
 
