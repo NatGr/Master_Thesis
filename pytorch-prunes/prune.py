@@ -44,7 +44,7 @@ parser.add_argument('--fast_train', '-ft', action='store_true', help='trains the
 args = parser.parse_args()
 print(args)
 print("using gpu" if torch.cuda.is_available() else "using cpu")
-device = torch.device("cuda:%s" % '0' if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 if args.net == 'res':
