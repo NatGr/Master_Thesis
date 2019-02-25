@@ -135,14 +135,15 @@ class MaskBlock(nn.Module):
 
         self.params += 2 * in_channels + 2 * middle_channels
 
-    def compress_weights(self):
+    def compress_weights(self, verbose=True):
         """
         removes the pruned channels definitively rather than hiding them behind self.mask
         returns the number of channels left and the initial number of channels in the layer
         """
         middle_dim = int(self.mask.sum().item())
         full_middle_dim = self.mask.size(0)
-        print(f"{middle_dim} channels left out of {full_middle_dim}")
+        if verbose:
+            print(f"{middle_dim} channels left out of {full_middle_dim}")
 
         if middle_dim is not 0:
             conv1 = nn.Conv2d(self.in_channels, middle_dim, kernel_size=1, stride=1, bias=False)

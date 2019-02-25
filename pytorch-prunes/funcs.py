@@ -106,7 +106,7 @@ class Pruner:
             raise Exception('The provided index doesn''t correspond to any feature maps. This is bad.')
 
     @staticmethod
-    def compress(model):
+    def compress(model, verbose=True):
         """
         removes the pruned channels from the MaskBlocks
         returns, for each layer, a pair containing the number of channels left and the initial number of channels
@@ -114,9 +114,10 @@ class Pruner:
         channels_left = []
         for m in model.modules():
             if m._get_name() == 'MaskBlock':
-                print(f"block {len(channels_left)+1:>3}", end=": ")  # starting at 1 to follow the convention of the
-                # paper
-                channels_left.append(m.compress_weights())
+                if verbose:
+                    print(f"block {len(channels_left)+1:>3}", end=": ")  # starting at 1 to follow the convention of the
+                    # paper
+                channels_left.append(m.compress_weights(verbose))
         return channels_left
 
     def _get_fisher(self, model):
