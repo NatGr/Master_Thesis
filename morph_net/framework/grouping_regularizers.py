@@ -37,98 +37,97 @@ import tensorflow as tf
 
 from morph_net.framework import generic_regularizers
 
-
 DEFAULT_THRESHOLD = 0.01
 
 
 class MaxGroupingRegularizer(generic_regularizers.OpRegularizer):
-  """A regularizer that groups others by taking their maximum."""
+    """A regularizer that groups others by taking their maximum."""
 
-  def __init__(self, regularizers_to_group):
-    """Creates an instance.
+    def __init__(self, regularizers_to_group):
+        """Creates an instance.
+    
+        Args:
+          regularizers_to_group: A list of generic_regularizers.OpRegularizer
+            objects.Their regularization_vector (alive_vector) are expected to be of
+            the same length.
+    
+        Raises:
+          ValueError: regularizers_to_group is not of length 2 (TODO:
+            support arbitrary length if needed.
+        """
+        _raise_if_length_is_not2(regularizers_to_group)
+        self._regularization_vector = tf.maximum(
+            regularizers_to_group[0].regularization_vector,
+            regularizers_to_group[1].regularization_vector)
+        self._alive_vector = tf.logical_or(regularizers_to_group[0].alive_vector,
+                                           regularizers_to_group[1].alive_vector)
 
-    Args:
-      regularizers_to_group: A list of generic_regularizers.OpRegularizer
-        objects.Their regularization_vector (alive_vector) are expected to be of
-        the same length.
+    @property
+    def regularization_vector(self):
+        return self._regularization_vector
 
-    Raises:
-      ValueError: regularizers_to_group is not of length 2 (TODO:
-        support arbitrary length if needed.
-    """
-    _raise_if_length_is_not2(regularizers_to_group)
-    self._regularization_vector = tf.maximum(
-        regularizers_to_group[0].regularization_vector,
-        regularizers_to_group[1].regularization_vector)
-    self._alive_vector = tf.logical_or(regularizers_to_group[0].alive_vector,
-                                       regularizers_to_group[1].alive_vector)
-
-  @property
-  def regularization_vector(self):
-    return self._regularization_vector
-
-  @property
-  def alive_vector(self):
-    return self._alive_vector
+    @property
+    def alive_vector(self):
+        return self._alive_vector
 
 
 class L2GroupingRegularizer(generic_regularizers.OpRegularizer):
-  r"""A regularizer that groups others by taking their L2 norm.
-
-  R_j = sqrt((\sum_i r_{ij}^2))
-
-  Where r_i is the i-th regularization vector, r_{ij} is its j-th element, and
-  R_j is the j-th element of the resulting regularization vector.
-  """
-
-  def __init__(self, regularizers_to_group, threshold=DEFAULT_THRESHOLD):
-    """Creates an instance.
-
-    Args:
-      regularizers_to_group: A list of generic_regularizers.OpRegularizer
-        objects.Their regularization_vector (alive_vector) are expected to be of
-        the same length.
-      threshold: A float. An group of activations will be considered alive if
-        its L2 norm is greater than `threshold`.
-
-    Raises:
-      ValueError: regularizers_to_group is not of length 2 (TODO:
-        support arbitrary length if needed.
+    r"""A regularizer that groups others by taking their L2 norm.
+  
+    R_j = sqrt((\sum_i r_{ij}^2))
+  
+    Where r_i is the i-th regularization vector, r_{ij} is its j-th element, and
+    R_j is the j-th element of the resulting regularization vector.
     """
-    _raise_if_length_is_not2(regularizers_to_group)
-    self._regularization_vector = tf.sqrt((
-        lazy_square(regularizers_to_group[0].regularization_vector) +
-        lazy_square(regularizers_to_group[1].regularization_vector)))
-    self._alive_vector = self._regularization_vector > threshold
 
-  @property
-  def regularization_vector(self):
-    return self._regularization_vector
+    def __init__(self, regularizers_to_group, threshold=DEFAULT_THRESHOLD):
+        """Creates an instance.
+    
+        Args:
+          regularizers_to_group: A list of generic_regularizers.OpRegularizer
+            objects.Their regularization_vector (alive_vector) are expected to be of
+            the same length.
+          threshold: A float. An group of activations will be considered alive if
+            its L2 norm is greater than `threshold`.
+    
+        Raises:
+          ValueError: regularizers_to_group is not of length 2 (TODO:
+            support arbitrary length if needed.
+        """
+        _raise_if_length_is_not2(regularizers_to_group)
+        self._regularization_vector = tf.sqrt((
+                lazy_square(regularizers_to_group[0].regularization_vector) +
+                lazy_square(regularizers_to_group[1].regularization_vector)))
+        self._alive_vector = self._regularization_vector > threshold
 
-  @property
-  def alive_vector(self):
-    return self._alive_vector
+    @property
+    def regularization_vector(self):
+        return self._regularization_vector
+
+    @property
+    def alive_vector(self):
+        return self._alive_vector
 
 
 def _raise_if_length_is_not2(regularizers_to_group):
-  if len(regularizers_to_group) != 2:
-    raise ValueError('Currently only groups of size 2 are supported.')
+    if len(regularizers_to_group) != 2:
+        raise ValueError('Currently only groups of size 2 are supported.')
 
 
 def lazy_square(tensor):
-  """Computes the square of a tensor in a lazy way.
-
-  This function is lazy in the following sense, for:
-    tensor = tf.sqrt(input)
-  will return input (and not tf.square(tensor)).
-
-  Args:
-    tensor: A `Tensor` of floats to compute the square of.
-
-  Returns:
-    The squre of the input tensor.
-  """
-  if tensor.op.type == 'Sqrt':
-    return tensor.op.inputs[0]
-  else:
-    return tf.square(tensor)
+    """Computes the square of a tensor in a lazy way.
+  
+    This function is lazy in the following sense, for:
+      tensor = tf.sqrt(input)
+    will return input (and not tf.square(tensor)).
+  
+    Args:
+      tensor: A `Tensor` of floats to compute the square of.
+  
+    Returns:
+      The squre of the input tensor.
+    """
+    if tensor.op.type == 'Sqrt':
+        return tensor.op.inputs[0]
+    else:
+        return tf.square(tensor)

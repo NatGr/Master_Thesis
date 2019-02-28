@@ -273,7 +273,7 @@ class WideResNet(nn.Module):
 
         n_channels = [16, int(16 * widen_factor), int(32 * widen_factor), int(64 * widen_factor)]
 
-        assert ((depth - 4) % 6 == 0)
+        assert ((depth - 4) % 6 == 0)  # 4 = the initial conv layer + the 3 conv1*1 when we change the width
         n = (depth - 4) / 6
 
         if mask == 1:

@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # plot_score(pruning_dict, scratch_dict, "param_history")
 
     # not-so-dense net
-    # pruning_dict = {"densenet-fisher": ["dense-100-fisher-2600_2000_prunes"]}  # TODO: add the other one
+    # pruning_dict = {"densenet-fisher": ["dense-100-fisher-2300_2299_prunes", "dense-100_2-fisher-2300_2299_prunes"]}
     # scratch_dict = {"notsodense": ("notsodense1-100-k=3", "notsodense1-100-k=3_0")}
     # plot_score(pruning_dict, scratch_dict, "param_history")
 

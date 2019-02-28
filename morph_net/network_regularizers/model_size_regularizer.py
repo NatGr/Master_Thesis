@@ -28,13 +28,13 @@ from morph_net.op_regularizers import gamma_l1_regularizer
 # but more is needed.
 class GammaModelSizeRegularizer(
     bilinear_cost_utils.BilinearNetworkRegularizer):
-  """A NetworkRegularizer that targets model size using Gamma L1 OpReg."""
+    """A NetworkRegularizer that targets model size using Gamma L1 OpReg."""
 
-  def __init__(self, ops, gamma_threshold):
-    gamma_l1_reg_factory = gamma_l1_regularizer.GammaL1RegularizerFactory(
-        gamma_threshold)
-    opreg_manager = op_regularizer_manager.OpRegularizerManager(
-        ops, {'Conv2D': gamma_l1_reg_factory.create_regularizer,
-              'DepthwiseConv2dNative': gamma_l1_reg_factory.create_regularizer})
-    super(GammaModelSizeRegularizer, self).__init__(
-        opreg_manager, bilinear_cost_utils.num_weights_coeff)
+    def __init__(self, ops, gamma_threshold):
+        gamma_l1_reg_factory = gamma_l1_regularizer.GammaL1RegularizerFactory(
+            gamma_threshold)
+        opreg_manager = op_regularizer_manager.OpRegularizerManager(
+            ops, {'Conv2D': gamma_l1_reg_factory.create_regularizer,
+                  'DepthwiseConv2dNative': gamma_l1_reg_factory.create_regularizer})
+        super(GammaModelSizeRegularizer, self).__init__(
+            opreg_manager, bilinear_cost_utils.num_weights_coeff)

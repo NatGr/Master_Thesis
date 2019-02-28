@@ -42,25 +42,24 @@ import tensorflow as tf
 
 from morph_net.framework import generic_regularizers
 
-
 layers = tf.contrib.layers
 
 
 class OpRegularizerStub(generic_regularizers.OpRegularizer):
-  """A stub that exponses a constant regularization_vector and alive_vector."""
+    """A stub that exponses a constant regularization_vector and alive_vector."""
 
-  def __init__(self, regularization_vector, alive_vector):
-    self._regularization_vector = tf.constant(
-        regularization_vector, dtype=tf.float32)
-    self._alive_vector = tf.constant(alive_vector, dtype=tf.bool)
+    def __init__(self, regularization_vector, alive_vector):
+        self._regularization_vector = tf.constant(
+            regularization_vector, dtype=tf.float32)
+        self._alive_vector = tf.constant(alive_vector, dtype=tf.bool)
 
-  @property
-  def regularization_vector(self):
-    return self._regularization_vector
+    @property
+    def regularization_vector(self):
+        return self._regularization_vector
 
-  @property
-  def alive_vector(self):
-    return self._alive_vector
+    @property
+    def alive_vector(self):
+        return self._alive_vector
 
 
 ALIVE_STUB = {
@@ -71,7 +70,6 @@ ALIVE_STUB = {
               False, False, True, False, False],
     'conv5': [False, True, False]
 }
-
 
 REG_STUB = {
     'conv1': [0.1, 0.3, 0.6, 0.2, 0.4, 0.0, 0.8],
@@ -85,63 +83,63 @@ REG_STUB = {
 
 
 def _create_stub(key):
-  return OpRegularizerStub(REG_STUB[key], ALIVE_STUB[key])
+    return OpRegularizerStub(REG_STUB[key], ALIVE_STUB[key])
 
 
 def build_model():
-  image = tf.constant(0.0, shape=[1, 17, 19, 3])
-  conv1 = layers.conv2d(image, 7, [7, 5], padding='SAME', scope='conv1')
-  conv2 = layers.conv2d(image, 5, [1, 1], padding='SAME', scope='conv2')
-  concat = tf.concat([conv1, conv2], 3)
-  conv3 = layers.conv2d(concat, 4, [1, 1], padding='SAME', scope='conv3')
-  conv4 = layers.conv2d(conv3, 12, [3, 3], padding='SAME', scope='conv4')
-  conv5 = layers.conv2d(
-      concat + conv4, 3, [3, 3], stride=2, padding='SAME', scope='conv5')
-  return conv5.op
+    image = tf.constant(0.0, shape=[1, 17, 19, 3])
+    conv1 = layers.conv2d(image, 7, [7, 5], padding='SAME', scope='conv1')
+    conv2 = layers.conv2d(image, 5, [1, 1], padding='SAME', scope='conv2')
+    concat = tf.concat([conv1, conv2], 3)
+    conv3 = layers.conv2d(concat, 4, [1, 1], padding='SAME', scope='conv3')
+    conv4 = layers.conv2d(conv3, 12, [3, 3], padding='SAME', scope='conv4')
+    conv5 = layers.conv2d(
+        concat + conv4, 3, [3, 3], stride=2, padding='SAME', scope='conv5')
+    return conv5.op
 
 
 def _create_conv2d_regularizer(conv_op, manager=None):
-  del manager  # unused
-  for key in REG_STUB:
-    if conv_op.name.startswith(key):
-      return _create_stub(key)
-  raise ValueError('No regularizer for %s' % conv_op.name)
+    del manager  # unused
+    for key in REG_STUB:
+        if conv_op.name.startswith(key):
+            return _create_stub(key)
+    raise ValueError('No regularizer for %s' % conv_op.name)
 
 
 MOCK_REG_DICT = {'Conv2D': _create_conv2d_regularizer}
 
 
 def expected_regularization():
-  """Build the expected alive vectors applying the rules of concat and group."""
-  concat = REG_STUB['conv1'] + REG_STUB['conv2']
-  # Grouping: Activation is alive after grouping if one of the constituents is
-  # alive.
-  grouped = [max(a, b) for a, b in zip(concat, REG_STUB['conv4'])]
-  conv1_length = len(REG_STUB['conv1'])
-  return {
-      'conv1': grouped[:conv1_length],
-      'conv2': grouped[conv1_length:],
-      'conv3': REG_STUB['conv3'],
-      'conv4': grouped,
-      'conv5': REG_STUB['conv5'],
-      'add': grouped,
-      'concat': grouped
-  }
+    """Build the expected alive vectors applying the rules of concat and group."""
+    concat = REG_STUB['conv1'] + REG_STUB['conv2']
+    # Grouping: Activation is alive after grouping if one of the constituents is
+    # alive.
+    grouped = [max(a, b) for a, b in zip(concat, REG_STUB['conv4'])]
+    conv1_length = len(REG_STUB['conv1'])
+    return {
+        'conv1': grouped[:conv1_length],
+        'conv2': grouped[conv1_length:],
+        'conv3': REG_STUB['conv3'],
+        'conv4': grouped,
+        'conv5': REG_STUB['conv5'],
+        'add': grouped,
+        'concat': grouped
+    }
 
 
 def expected_alive():
-  """Build the expected alive vectors applying the rules of concat and group."""
-  concat = ALIVE_STUB['conv1'] + ALIVE_STUB['conv2']
-  # Grouping: Activation is alive after grouping if one of the constituents is
-  # alive.
-  grouped = [a or b for a, b in zip(concat, ALIVE_STUB['conv4'])]
-  conv1_length = len(ALIVE_STUB['conv1'])
-  return {
-      'conv1': grouped[:conv1_length],
-      'conv2': grouped[conv1_length:],
-      'conv3': ALIVE_STUB['conv3'],
-      'conv4': grouped,
-      'conv5': ALIVE_STUB['conv5'],
-      'add': grouped,
-      'concat': grouped
-  }
+    """Build the expected alive vectors applying the rules of concat and group."""
+    concat = ALIVE_STUB['conv1'] + ALIVE_STUB['conv2']
+    # Grouping: Activation is alive after grouping if one of the constituents is
+    # alive.
+    grouped = [a or b for a, b in zip(concat, ALIVE_STUB['conv4'])]
+    conv1_length = len(ALIVE_STUB['conv1'])
+    return {
+        'conv1': grouped[:conv1_length],
+        'conv2': grouped[conv1_length:],
+        'conv3': ALIVE_STUB['conv3'],
+        'conv4': grouped,
+        'conv5': ALIVE_STUB['conv5'],
+        'add': grouped,
+        'concat': grouped
+    }

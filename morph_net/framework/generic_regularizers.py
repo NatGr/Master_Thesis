@@ -35,73 +35,73 @@ import abc
 
 
 class OpRegularizer(object):
-  """An interface for Op Regularizers.
+    """An interface for Op Regularizers.
 
-  An OpRegularizer object corresponds to a tf.Operation, and provides
-  a regularizer for the output of the op (we assume that the op has one output
-  of interest in the context of MorphNet).
-  """
-  __metaclass__ = abc.ABCMeta
-
-  @abc.abstractproperty
-  def regularization_vector(self):
-    """Returns a vector of floats, with regularizers.
-
-    The length of the vector is the number of "output activations" (call them
-    neurons, nodes, filters etc) of the op. For a convolutional network, it's
-    the number of filters (aka "depth"). For a fully-connected layer, it's
-    usually the second (and last) dimension - assuming the first one is the
-    batch size.
+    An OpRegularizer object corresponds to a tf.Operation, and provides
+    a regularizer for the output of the op (we assume that the op has one output
+    of interest in the context of MorphNet).
     """
-    pass
+    __metaclass__ = abc.ABCMeta
 
-  @abc.abstractproperty
-  def alive_vector(self):
-    """Returns a vector of booleans, indicating which activations are alive.
+    @abc.abstractproperty
+    def regularization_vector(self):
+        """Returns a vector of floats, with regularizers.
 
-    (call them activations, neurons, nodes, filters etc). This vector is of the
-    same length as the regularization_vector.
-    """
-    pass
+        The length of the vector is the number of "output activations" (call them
+        neurons, nodes, filters etc) of the op. For a convolutional network, it's
+        the number of filters (aka "depth"). For a fully-connected layer, it's
+        usually the second (and last) dimension - assuming the first one is the
+        batch size.
+        """
+        pass
+
+    @abc.abstractproperty
+    def alive_vector(self):
+        """Returns a vector of booleans, indicating which activations are alive.
+
+        (call them activations, neurons, nodes, filters etc). This vector is of the
+        same length as the regularization_vector.
+        """
+        pass
 
 
 class NetworkRegularizer(object):
-  """An interface for Network Regularizers."""
-  __metaclass__ = abc.ABCMeta
+    """An interface for Network Regularizers."""
+    __metaclass__ = abc.ABCMeta
 
-  @abc.abstractmethod
-  def get_regularization_term(self, ops=None):
-    """Compute the regularization term.
+    @abc.abstractmethod
+    def get_regularization_term(self, ops=None):
+        """Compute the regularization term.
 
-    Args:
-      ops: A list of tf.Operation objects. If specified, only the regularization
-        term associated with the ops in `ops` will be returned. Otherwise, all
-        relevant ops in the default TensorFlow graph will be included.
+        Args:
+          ops: A list of tf.Operation objects. If specified, only the regularization
+            term associated with the ops in `ops` will be returned. Otherwise, all
+            relevant ops in the default TensorFlow graph will be included.
 
-    Returns:
-      A tf.Tensor scalar of floating point type that evaluates to the
-      regularization term (that should be added to the total loss, with a
-      suitable coefficient)
-    """
-    pass
+        Returns:
+          A tf.Tensor scalar of floating point type that evaluates to the
+          regularization term (that should be added to the total loss, with a
+          suitable coefficient)
+        """
+        pass
 
-  @abc.abstractmethod
-  def get_cost(self, ops=None):
-    """Calculates the cost targeted by the Regularizer.
+    @abc.abstractmethod
+    def get_cost(self, ops=None):
+        """Calculates the cost targeted by the Regularizer.
 
-    Args:
-      ops: A list of tf.Operation objects. If specified, only the cost
-        pertaining to the ops in the `ops` will be returned. Otherwise, all
-        relevant ops in the default TensorFlow graph will be included.
+        Args:
+          ops: A list of tf.Operation objects. If specified, only the cost
+            pertaining to the ops in the `ops` will be returned. Otherwise, all
+            relevant ops in the default TensorFlow graph will be included.
 
-    Returns:
-      A tf.Tensor scalar that evaluates to the cost.
-    """
-    pass
+        Returns:
+          A tf.Tensor scalar that evaluates to the cost.
+        """
+        pass
 
 
 def dimensions_are_compatible(op_regularizer):
-  """Checks if op_regularizer's alive_vector matches regularization_vector."""
-  return op_regularizer.alive_vector.shape.with_rank(1).dims[
-      0].is_compatible_with(
-          op_regularizer.regularization_vector.shape.with_rank(1).dims[0])
+    """Checks if op_regularizer's alive_vector matches regularization_vector."""
+    return op_regularizer.alive_vector.shape.with_rank(1).dims[
+        0].is_compatible_with(
+        op_regularizer.regularization_vector.shape.with_rank(1).dims[0])
