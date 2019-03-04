@@ -1,3 +1,16 @@
+# Scripts to build and prune wideresnets were build on top of the Morphnet source code (whose readme follows)
+
+Code tested with tensorflow 1.9. To build a network, one should use (from outside of the morephnet directory)
+```
+ python -m morph_net.cifar10_train
+```
+
+A network can then be evaluated using 
+```
+ python -m morph_net.cifar10_eval
+```
+
+
 # MorphNet: Fast & Simple Resource-Constrained Structure Learning of Deep Networks
 
 [TOC]

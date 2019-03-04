@@ -30,6 +30,7 @@ from __future__ import print_function
 import os
 import sys
 import tarfile
+import math
 
 from six.moves import urllib
 import tensorflow as tf
@@ -40,9 +41,9 @@ from morph_net import cifar10_input
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_integer('batch_size', 128, """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_string('data_dir', '/tmp/cifar10_data', """Path to the CIFAR-10 data directory.""")
+tf.app.flags.DEFINE_string('data_dir', '/home/nathan/Documents/cifar10_tf', """Path to the CIFAR-10 data directory.""")
 tf.app.flags.DEFINE_boolean('use_fp16', False, """Train the model using fp16.""")
-tf.app.flags.DEFINE_float('init_lr', 0.01, """initial learing rate""")
+tf.app.flags.DEFINE_float('init_lr', 0.1, """initial learing rate""")
 tf.app.flags.DEFINE_float('lr_decay_factor', 0.2, """learning rate decay factor""")
 tf.app.flags.DEFINE_integer('epoch_per_decay', 53, """number of epochs between each learning rate decay""")
 
@@ -53,9 +54,8 @@ NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = cifar10_input.NUM_EXAMPLES_PER_EPOCH_FOR_TRAI
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = cifar10_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
 # Constants describing the training process.
-MOVING_AVERAGE_DECAY = 0.9999  # The decay to use for the moving average.
 
-num_batches_per_epoch = int(NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN // FLAGS.batch_size + 1)
+num_batches_per_epoch = int(math.ceil(NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / FLAGS.batch_size))
 decay_steps = num_batches_per_epoch * FLAGS.epoch_per_decay
 
 # If a model is trained with multiple GPUs, prefix all Op names with tower_name
@@ -109,7 +109,7 @@ def inputs(eval_data):
 
 def loss(logits, labels, network_reg):
     """Add L2Loss to all the trainable variables.
-    Add summary for "Loss" and "Loss/avg".
+    Add summary for "Loss".
     Args:
         logits: Logits from inference().
         labels: Labels from distorted_inputs or inputs(). 1-D tensor
@@ -125,43 +125,18 @@ def loss(logits, labels, network_reg):
     cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
     tf.add_to_collection('losses', cross_entropy_mean)
 
-    tf.summary.scalar('FLOPs', network_reg.get_cost())  # easier to do it here than in _add_loss_summaries
+    tf.summary.scalar('cross_entropy', cross_entropy_mean)
+    tf.summary.scalar('FLOPs', network_reg.get_cost())
 
     # The total loss is defined as the cross entropy loss plus all of the weight
     # decay terms (L2 loss).
-    return tf.add_n(tf.get_collection('losses'), name='total_loss') + FLAGS.regularizer_strength * \
-           network_reg.get_regularization_term()
-
-
-def _add_loss_summaries(total_loss):
-    """Add summaries for losses in CIFAR-10 model.
-    Generates moving average for all losses and associated summaries for
-    visualizing the performance of the network.
-    Args:
-      total_loss: Total loss from loss().
-    Returns:
-      loss_averages_op: op for generating moving averages of losses.
-    """
-    # Compute the moving average of all individual losses and the total loss.
-    loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
-    losses = tf.get_collection('losses')
-    loss_averages_op = loss_averages.apply(losses + [total_loss])
-
-    # Attach a scalar summary to all individual losses and the total loss; do the
-    # same for the averaged version of the losses.
-    for l in losses + [total_loss]:
-        # Name each loss as '(raw)' and name the moving average version of the loss
-        # as the original loss name.
-        tf.summary.scalar(l.op.name, l)
-        # tf.summary.scalar(l.op.name, loss_averages.average(l))
-
-    return loss_averages_op
+    return tf.add_n(tf.get_collection('losses'), name='total_loss') + \
+           FLAGS.regularizer_strength * network_reg.get_regularization_term()
 
 
 def train(total_loss, global_step):
     """Train CIFAR-10 model.
-    Create an optimizer and apply to all trainable variables. Add moving
-    average for all trainable variables.
+    Create an optimizer and apply to all trainable variables.
     Args:
       total_loss: Total loss from loss().
       global_step: Integer Variable counting the number of training steps
@@ -178,24 +153,14 @@ def train(total_loss, global_step):
                                     staircase=True)
     tf.summary.scalar('learning_rate', lr)
 
-    # Generate moving averages of all losses and associated summaries.
-    loss_averages_op = _add_loss_summaries(total_loss)
-
     # Compute gradients.
-    with tf.control_dependencies([loss_averages_op]):
-        opt = tf.train.GradientDescentOptimizer(lr)
-        grads = opt.compute_gradients(total_loss)
+    opt = tf.train.GradientDescentOptimizer(lr)
+    grads = opt.compute_gradients(total_loss)
 
     # Apply gradients.
     apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
-    # Track the moving averages of all trainable variables.
-    variable_averages = tf.train.ExponentialMovingAverage(
-        MOVING_AVERAGE_DECAY, global_step)
-    with tf.control_dependencies([apply_gradient_op]):
-        variables_averages_op = variable_averages.apply(tf.trainable_variables())
-
-    return variables_averages_op
+    return apply_gradient_op
 
 
 def maybe_download_and_extract():

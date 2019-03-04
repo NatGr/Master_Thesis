@@ -45,7 +45,7 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('eval_dir', '/home/nathan/Documents/TFE/morph_net/eval',
                            """Directory where to write event logs.""")
 tf.app.flags.DEFINE_string('eval_data', 'test', """Either 'test' or 'train_eval'.""")
-tf.app.flags.DEFINE_string('checkpoint_dir', '/home/nathan/Documents/TFE/morph_net/checkpoints',
+tf.app.flags.DEFINE_string('checkpoint_dir', '/home/nathan/Documents/TFE/morph_net/checkpoints6e-9_lr=0_1',
                            """Directory where to read model checkpoints.""")
 tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5, """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 10000, """Number of examples to run.""")
@@ -119,11 +119,7 @@ def evaluate():
         # Calculate predictions.
         top_k_op = tf.nn.in_top_k(logits, labels, 1)
 
-        # Restore the moving average version of the learned variables for eval.
-        variable_averages = tf.train.ExponentialMovingAverage(
-            cifar10.MOVING_AVERAGE_DECAY)
-        variables_to_restore = variable_averages.variables_to_restore()
-        saver = tf.train.Saver(variables_to_restore)
+        saver = tf.train.Saver()
 
         # Build the summary operation based on the TF collection of Summaries.
         summary_op = tf.summary.merge_all()
