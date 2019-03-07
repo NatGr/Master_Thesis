@@ -76,15 +76,15 @@ if args.list_channels is not None:
 
 
 if args.net == 'res':
-    if not args.bottle:
-        model = WideResNet(args.depth, args.width, mask=args.mask)
-    elif args.channels_morphnet_file is None:
+    if args.bottle:
         model = WideResNetBottle(args.depth, args.width, mid_channels=args.bottle_mult if list_channels is None else
         list_channels)
+    elif args.channels_morphnet_file is None:
+        model = WideResNet(args.depth, args.width, mask=args.mask)
     else:
         file = open(args.channels_morphnet_file, 'rb')
-        channels_dict = pickle.load(file)
-        model = WideResNetAllLayersPrunable(args.depth, args.width, channels_dict=channels_dict)
+        channels_dict = {name: channels_rem for name, (channels_rem, _) in pickle.load(file).items()}
+        model = WideResNetAllLayersPrunable(args.depth, channels_dict=channels_dict)
 elif args.net == 'dense':
     if not args.bottle:
         model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mask=args.mask,

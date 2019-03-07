@@ -4,7 +4,7 @@ Author: Nathan Greffe"""
 
 import torch
 import torch.nn as nn
-
+import math
 
 class WideResNetBlock(nn.Module):
     """wideresnet block, """
@@ -22,7 +22,7 @@ class WideResNetBlock(nn.Module):
 
         self.drop_rate = drop_rate
         self.conv_shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride,
-                                      padding=0, bias=False) if not is_first else None
+                                      padding=0, bias=False) if is_first else None
 
     def forward(self, x):
         has_conv_shortcut = self.conv_shortcut is not None
@@ -38,11 +38,10 @@ class WideResNetBlock(nn.Module):
         return torch.add(self.conv_shortcut(x) if has_conv_shortcut else x, out)
 
 
-
 class WideResNetSubNetwork(nn.Module):
     """subNetwork (several resnet blocks with the same number of channels) of WideResNet"""
     def __init__(self, block_id, nb_layers, in_channels, out_channels, stride, drop_rate, channels_dict):
-        super(WideResNetSubBlock, self).__init__()
+        super(WideResNetSubNetwork, self).__init__()
 
         layers = []
         for i in range(int(nb_layers)):
@@ -65,10 +64,10 @@ class WideResNetSubNetwork(nn.Module):
         return self.layer(x)
 
 
-class WideResNet(nn.Module):
+class WideResNetAllLayersPrunable(nn.Module):
     """whole WideResNet module whose every layer is prunable instead of just the bottleneck layers"""
     def __init__(self, depth, channels_dict, num_classes=10, drop_rate=0.0):
-        super(WideResNet, self).__init__()
+        super(WideResNetAllLayersPrunable, self).__init__()
 
         assert ((depth - 4) % 6 == 0)  # 4 = the initial conv layer + the 3 conv1*1 when we change the width
         n = (depth - 4) / 6
@@ -95,7 +94,7 @@ class WideResNet(nn.Module):
         self.nChannels = n_channels[3]
 
         # Count params that don't exist in blocks (conv1, bn1, fc)
-        self.fixed_params = len(self.conv1.weight.view(-1)) + len(self.bn1.weight) + len(self.bn1.bias) + \
+        self.fixed_params = len(self.Conv_0.weight.view(-1)) + len(self.bn1.weight) + len(self.bn1.bias) + \
             len(self.fc.weight.view(-1)) + len(self.fc.bias)
 
         for m in self.modules():

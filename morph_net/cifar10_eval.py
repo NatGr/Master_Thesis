@@ -34,6 +34,8 @@ from __future__ import print_function
 from datetime import datetime
 import math
 import time
+import os
+import pickle
 
 import numpy as np
 import tensorflow as tf
@@ -50,6 +52,10 @@ tf.app.flags.DEFINE_string('checkpoint_dir', '/home/nathan/Documents/TFE/morph_n
 tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5, """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 10000, """Number of examples to run.""")
 tf.app.flags.DEFINE_boolean('run_once', True, """Whether to run eval only once.""")
+tf.app.flags.DEFINE_string('channels_file_name', None,
+                           """the name of the pickle file containing the number of channels 
+that was used for the last round of pruning of this network""")
+tf.app.flags.DEFINE_float('mult_fact', 1.8, """the mult factor that was last used for this network""")
 
 
 def eval_once(saver, summary_writer, top_k_op, summary_op):
@@ -114,7 +120,17 @@ def evaluate():
 
         # Build a Graph that computes the logits predictions from the
         # inference model.
-        logits = wideresnet.wideresnet_concat(40, 2, images, num_classes=10, drop_rate=0.0)
+        depth = 40
+        widening_factor = 2
+        if FLAGS.channels_file_name is None:
+            logits = wideresnet.wideresnet_concat(depth, widening_factor, images, num_classes=10, drop_rate=0.0)
+        else:
+            file = open(os.path.join('morph_net', 'pickle', FLAGS.channels_file_name), 'rb')
+            dict_channels = pickle.load(file)
+            channels_dict = {key: int(val * FLAGS.mult_fact) for key, (val, _) in dict_channels.items()}
+
+            logits = wideresnet.wideresnet_concat(depth, widening_factor, images, num_classes=10, drop_rate=0.0,
+                                                  channels_dict=channels_dict)
 
         # Calculate predictions.
         top_k_op = tf.nn.in_top_k(logits, labels, 1)
