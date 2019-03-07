@@ -40,6 +40,9 @@ parser.add_argument('--list_channels', default=None, help='pickle file containin
                                                           'every layer in the network as a python list')
 parser.add_argument('--channels_factor', default=1., type=float, help='float by which to multiply the number of '
                                                                       'channels')
+parser.add_argument('--channels_morphnet_file', default=None, type=str, help='name of the picle file containing the'
+                                                                        'channels of the network that are left after a'
+                                                                        'pruning of all the layers like morphnet does')
 
 # Net specific
 parser.add_argument('--depth', '-d', default=40, type=int, metavar='D', help='depth of wideresnet/densenet')
@@ -67,17 +70,21 @@ print(device)
 # loads ans scale the number of bottleneck channels per layer
 list_channels = None
 if args.list_channels is not None:
-    with open(os.path.join('nbr_channels', f"{args.list_channels}.pickle"), 'rb') as file:
-        list_channels = pickle.load(file)[0]
-        list_channels = [i*args.channels_factor for i in list_channels]
+    file = open(os.path.join('nbr_channels', f"{args.list_channels}.pickle"), 'rb')
+    list_channels = pickle.load(file)[0]
+    list_channels = [i*args.channels_factor for i in list_channels]
 
 
 if args.net == 'res':
     if not args.bottle:
         model = WideResNet(args.depth, args.width, mask=args.mask)
-    else:
+    elif args.channels_morphnet_file is None:
         model = WideResNetBottle(args.depth, args.width, mid_channels=args.bottle_mult if list_channels is None else
         list_channels)
+    else:
+        file = open(args.channels_morphnet_file, 'rb')
+        channels_dict = pickle.load(file)
+        model = WideResNetAllLayersPrunable(args.depth, args.width, channels_dict=channels_dict)
 elif args.net == 'dense':
     if not args.bottle:
         model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mask=args.mask,

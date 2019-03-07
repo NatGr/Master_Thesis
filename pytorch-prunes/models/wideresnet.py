@@ -267,7 +267,7 @@ class NetworkBlockBottle(nn.Module):
 
 
 class WideResNet(nn.Module):
-    """whole WideResNet-40-2 module without bottlenecks"""
+    """whole WideResNet module without bottlenecks"""
     def __init__(self, depth, widen_factor, num_classes=10, drop_rate=0.0, mask=False):
         super(WideResNet, self).__init__()
 
@@ -323,7 +323,7 @@ class WideResNet(nn.Module):
 
 
 class WideResNetBottle(nn.Module):
-    """whole WideResNet-40-2 module with bottlenecks"""
+    """whole WideResNet module with bottlenecks"""
     def __init__(self, depth, widen_factor, num_classes=10, drop_rate=0.0, mid_channels=0.5):
         """
         the argument mid_channels might be a float scaling factor or a list containing the number of middle channels
