@@ -33,7 +33,7 @@ def save_nbr_channels_and_params(file, model, nbr_prunings, pickle_file_name):
     layers = pruner.compress(model)
     layers = [i for i, _ in layers]  # get rid of initial number of layers
     count_ops, count_params = measure_model(model, 32, 32)
-    with open(pickle_file_name, 'wb') as file:
+    with open(os.path.join("nbr_channels", f"{pickle_file_name}.pickle"), 'wb') as file:
         pickle.dump((layers, count_ops, count_params), file)
 
 
@@ -196,12 +196,29 @@ if __name__ == "__main__":
     # plot_score(pruning_dict, scratch_dict, "param_history")
 
     # accuracies:
-    print("------ notsodense1")
-    count_nbr_params_flops_acc("notsodense1-100-k=3", NotSoDenseNet1(12, 100, 0.5, 10, True, 3, mask=1), 0)
-    print("------ densenet")
-    count_nbr_params_flops_acc("dense-100", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
-    count_nbr_params_flops_acc("dense-100_2", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
-    print("------ densenet-cosine")
-    count_nbr_params_flops_acc("dense-100-cosine", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
-    count_nbr_params_flops_acc("dense-100-cosine_2", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
+    # print("------ notsodense1")
+    # count_nbr_params_flops_acc("notsodense1-100-k=3", NotSoDenseNet1(12, 100, 0.5, 10, True, 3, mask=1), 0)
+    # print("------ densenet")
+    # count_nbr_params_flops_acc("dense-100", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
+    # count_nbr_params_flops_acc("dense-100_2", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
+    # print("------ densenet-cosine")
+    # count_nbr_params_flops_acc("dense-100-cosine", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
+    # count_nbr_params_flops_acc("dense-100-cosine_2", DenseNet(12, 100, 0.5, 10, True, mask=1), 0)
 
+    # get flops and params for morphnet models
+    # file_name = "res-40-2-rs=8e-9-tresh=1e-3-lr=1e-2"
+    # with open(f"../morph_net/pickle/{file_name}.pickle", 'rb') as file:
+    #     channels_dict = {name: channels_rem for name, (channels_rem, _) in pickle.load(file).items()}
+    #     model = WideResNetAllLayersPrunable(40, channels_dict=channels_dict)
+    # count_nbr_params_flops_acc(f"morphnet/morphnet-{file_name}", model, 0)
+
+    # get flops and params for fisher models
+    file_hist = "res-40-2-scratch-fisher-450"
+    file_pf = "res-40-2_fisher_450"
+    score = torch.load(os.path.join('checkpoints', f'{file_hist}.t7'))["error_history"][-1]
+    with open(os.path.join('nbr_channels', f"{file_pf}.pickle"), 'rb') as file:
+        data = pickle.load(file)
+    print(f"{data[0]} layers")
+    print(f"{data[1] :.2E} FLOPS")
+    print(f"{data[2]} params")
+    print(f"{score}% of error")

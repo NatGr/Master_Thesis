@@ -31,14 +31,14 @@ from morph_net.network_regularizers.flop_regularizer import GammaFlopsRegularize
 
 tf.app.flags.DEFINE_string('base_dir', '/home/nathan/Documents/TFE/morph_net',
                            """parent directory of train_dir""")
-tf.app.flags.DEFINE_string('train_dir', 'checkpoints6e-9_tresh=1e-3',
+tf.app.flags.DEFINE_string('train_dir', 'checkpoints5e-8_tresh=1e-3_Group',
                            """Directory where to write event logs and checkpoint. (relative to base_dir)""")
 tf.app.flags.DEFINE_integer('max_epochs', 200, """Number of epochs to run.""")
 tf.app.flags.DEFINE_float('threshold', 1e-3, """The BN treshold under which a channel is considered pruned""")
-tf.app.flags.DEFINE_float('regularizer_strength', 6e-9, """the strenght of the regularizer in the loss term""")
-tf.app.flags.DEFINE_string('pickle_file_name', 'res-40-2-rs=6e-9-tresh=1e-3.pickle',
+tf.app.flags.DEFINE_float('regularizer_strength', 5e-8, """the strenght of the regularizer in the loss term""")
+tf.app.flags.DEFINE_string('pickle_file_name', 'res-40-2-rs=5e-8-tresh=1e-3_Group.pickle',
                            'the strenght of the regularizer in the loss term')
-tf.app.flags.DEFINE_boolean('use_gamma_reg', True,
+tf.app.flags.DEFINE_boolean('use_gamma_reg', False,
                             """uses GammaFlopsRegularizer, if set to false, we will use GroupLassoFlopsRegularizer""")
 tf.app.flags.DEFINE_string('channels_file_name', None,
                            """the name of the pickle file containing the number of channels 

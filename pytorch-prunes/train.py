@@ -70,9 +70,9 @@ print(device)
 # loads ans scale the number of bottleneck channels per layer
 list_channels = None
 if args.list_channels is not None:
-    file = open(os.path.join('nbr_channels', f"{args.list_channels}.pickle"), 'rb')
-    list_channels = pickle.load(file)[0]
-    list_channels = [i*args.channels_factor for i in list_channels]
+    with open(os.path.join('nbr_channels', f"{args.list_channels}.pickle"), 'rb') as file:
+        list_channels = pickle.load(file)[0]
+        list_channels = [i*args.channels_factor for i in list_channels]
 
 
 if args.net == 'res':
@@ -82,9 +82,9 @@ if args.net == 'res':
     elif args.channels_morphnet_file is None:
         model = WideResNet(args.depth, args.width, mask=args.mask)
     else:
-        file = open(args.channels_morphnet_file, 'rb')
-        channels_dict = {name: channels_rem for name, (channels_rem, _) in pickle.load(file).items()}
-        model = WideResNetAllLayersPrunable(args.depth, channels_dict=channels_dict)
+        with open(args.channels_morphnet_file, 'rb') as file:
+            channels_dict = {name: channels_rem for name, (channels_rem, _) in pickle.load(file).items()}
+            model = WideResNetAllLayersPrunable(args.depth, channels_dict=channels_dict)
 elif args.net == 'dense':
     if not args.bottle:
         model = DenseNet(args.growth, args.depth, args.transition_rate, 10, True, mask=args.mask,
