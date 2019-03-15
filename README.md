@@ -12,3 +12,4 @@ The techniques investigated were:
 ### Repository structure:
 	- pytorch-prunes: modification of the code of the paper "[Pruning neural networks: is it time to nip it in the bud?][https://arxiv.org/abs/1810.04622]"
 	- morph_net: modification of the code of the paper "[MorphNet: Fast & Simple Resource-Constrained Structure Learning of Deep Networks][http://arxiv.org/abs/1711.06798]"
+	- NetAdapt: self-made implementation of the paper "[NetAdapt: Platform-Aware Neural Network Adaptation for Mobile Applications][http://arxiv.org/abs/1804.03230]"
