@@ -40,12 +40,12 @@ class WideResNetBlock(nn.Module):
 
 class WideResNetSubNetwork(nn.Module):
     """subNetwork (several resnet blocks with the same number of channels) of WideResNet"""
-    def __init__(self, block_id, nb_layers, in_channels, out_channels, stride, drop_rate, channels_dict):
+    def __init__(self, subnet_id, nb_layers, in_channels, out_channels, stride, drop_rate, channels_dict):
         super(WideResNetSubNetwork, self).__init__()
 
         layers = []
         for i in range(int(nb_layers)):
-            conv1_name = f"Conv_{block_id}_{i}_1"
+            conv1_name = f"Conv_{subnet_id}_{i}_1"
             if conv1_name not in channels_dict or channels_dict[conv1_name] == 0:
                 if i == 0:  # in the case the first layer was skipped, we have to use the skip 1*1 convolution as
                     # input for the second layer
