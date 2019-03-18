@@ -67,7 +67,7 @@ args = parser.parse_args()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-# loads ans scale the number of bottleneck channels per layer
+# loads and scale the number of bottleneck channels per layer
 list_channels = None
 if args.list_channels is not None:
     with open(os.path.join('nbr_channels', f"{args.list_channels}.pickle"), 'rb') as file:

@@ -106,7 +106,7 @@ class WideResNet(nn.Module):
         setattr(self, name + "_bn", nn.BatchNorm2d(n_channels_out))
         setattr(self, name + "_relu", nn.ReLU(inplace=True))
         if new_mask:
-            setattr(self, name + "_mask", torch.ones(n_channels_out, device=self.device))
+            self.register_buffer(name + '_mask', torch.ones(n_channels_out, device=self.device))
         setattr(self, name + "_activation", Identity())
         setattr(self, name + "_run_fish", 0)
         getattr(self, name + "_activation").register_backward_hook(lambda x, y, z: self._fisher(z, name + "_act",
@@ -177,7 +177,7 @@ class WideResNet(nn.Module):
 
         # create the table
         perf_table = {}
-        number_of_measures = 50
+        number_of_measures = 10
 
         self.make_conv_model(32, 32, 2)(torch.rand(1, 32, 32, 32, device=self.device))
         # so that pytorch caches whatever he needs
@@ -200,7 +200,7 @@ class WideResNet(nn.Module):
                         model(input_tensor)
                         measures[k] = time.perf_counter() - begin
 
-                    table_entry[in_channels - 1, out_channels - 1] = np.mean(measures)
+                    table_entry[in_channels - 1, out_channels - 1] = np.median(measures)
             perf_table[name] = table_entry
 
         with open(os.path.join('perf_tables', f"{file_name}.pickle"), 'wb') as file:
