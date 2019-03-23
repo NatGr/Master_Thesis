@@ -1,11 +1,14 @@
 """This script just trains models from scratch, to later be pruned
-@Author: Nathan Greffe"""
+@Author: Nathan Greffe
+python train.py --net='res' --depth=40 --width=2.0 --save_file='res-40-2'"""
 
 import argparse
+import json
 import torch.optim.lr_scheduler as lr_scheduler
 
 from models.wideresnet import *
-from functs import *
+from training_fcts import *
+from data_fcts import *
 
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N', help='number of data loading workers')
@@ -57,7 +60,8 @@ if __name__ == '__main__':
                                 lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
 
     if args.lr_type == "multistep":
-        scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=args.epoch_step, gamma=args.lr_decay_ratio)
+        epoch_step = json.loads(args.epoch_step)
+        scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=epoch_step, gamma=args.lr_decay_ratio)
     elif args.lr_type == "cosine":
         scheduler = lr_scheduler.CosineAnnealingLR(optimizer, args.no_epochs)
     else:
@@ -71,6 +75,8 @@ if __name__ == '__main__':
         train(model, optimizer, full_train_loader, criterion, device)
         # evaluate on validation set
         error_history.append(validate(model, val_loader, criterion, device))
+
+        model.reset_fisher()  # sets the run_fisher params to None so that they are not save with the rest of the model
 
         if epoch == args.no_epochs:
             torch.save({
