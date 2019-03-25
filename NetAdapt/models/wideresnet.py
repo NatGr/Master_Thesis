@@ -13,14 +13,6 @@ import os
 import pickle
 
 
-class Identity(nn.Module):
-    def __init__(self):
-        super(Identity, self).__init__()
-
-    def forward(self, x):
-        return x
-
-
 class WideResNet(nn.Module):
     """whole WideResNet module without bottlenecks"""
     def __init__(self, depth, widen_factor, device, num_classes=10, drop_rate=0.0):
@@ -83,6 +75,9 @@ class WideResNet(nn.Module):
         else:
             setattr(self, running_fisher_name, running_fisher_prev + del_k)
 
+        # This is needed to avoid a memory leak! I spent 3 days on this :'( :'(
+        setattr(self, act_name, None)
+
     def reset_fisher(self):
         for layer in self.compute_fisher_on:
             setattr(self, layer + "_run_fish", None)
@@ -111,36 +106,40 @@ class WideResNet(nn.Module):
         setattr(self, name + "_relu", nn.ReLU(inplace=True))
         if new_mask:
             self.register_buffer(name + '_mask', torch.ones(n_channels_out, device=self.device))
-        setattr(self, name + "_activation", Identity())
 
         run_fisher_layer = name + "_run_fish"
         self.register_buffer(run_fisher_layer, None)
-        getattr(self, name + "_activation").register_backward_hook(lambda x, y, z: self._fisher(z, name + "_act",
-                                                                                                run_fisher_layer))
+
+    def do_nothing(self, grad):
+        pass
 
     def _forward_subnet(self, subnet_id, x):
         name_shared_mask = f"Conv_{subnet_id}_0_2_mask"  # name of the mask that is shared by half of the layers
         out = x  # in case n_blocks_per_subnet == 0
 
         for i in range(self.n_blocks_per_subnet):
-            name_1 = f"Conv_{subnet_id}_{i}_1"
-            name_2 = f"Conv_{subnet_id}_{i}_2"
+            name1 = f"Conv_{subnet_id}_{i}_1"
+            name2 = f"Conv_{subnet_id}_{i}_2"
 
-            out = getattr(self, name_1)(x)
-            out = getattr(self, name_1 + "_relu")(getattr(self, name_1 + "_bn")(out))
-            out = out * getattr(self, name_1 + "_mask")[None, :, None, None]
-            out = getattr(self, name_1 + "_activation")(out)
-            setattr(self, name_1 + "_act", out)
+            out = getattr(self, name1)(x)
+            out = getattr(self, name1 + "_relu")(getattr(self, name1 + "_bn")(out))
+            out = out * getattr(self, name1 + "_mask")[None, :, None, None]
+
+            out.register_hook(lambda x, act=name1 + "_act", rf=name1 + "_run_fish": self._fisher(x, act, rf))
+
+            setattr(self, name1 + "_act", out)
             if self.drop_rate > 0:
                 out = fct.dropout(out, p=self.drop_rate, training=self.training)
-            out = getattr(self, name_2)(out)
+            out = getattr(self, name2)(out)
 
             out = torch.add(out, x if i != 0 else getattr(self, f"Skip_{subnet_id}")(x))
 
-            out = getattr(self, name_2 + "_relu")(getattr(self, name_2 + "_bn")(out))
+            out = getattr(self, name2 + "_relu")(getattr(self, name2 + "_bn")(out))
             out = out * getattr(self, name_shared_mask)[None, :, None, None]
-            out = getattr(self, name_2 + "_activation")(out)
-            setattr(self, name_2 + "_act", out)
+
+            out.register_hook(lambda x, act=name2 + "_act", rf=name2 + "_run_fish": self._fisher(x, act, rf))
+
+            setattr(self, name2 + "_act", out)
 
             x = out  # because we will use it in the skip connection of next layer
         return out
@@ -149,7 +148,9 @@ class WideResNet(nn.Module):
         out = self.Conv_0(x)
         out = self.Conv_0_relu(self.Conv_0_bn(out))
         out = out * self.Conv_0_mask[None, :, None, None]
-        out = self.Conv_0_activation(out)
+
+        out.register_hook(lambda x: self._fisher(x, "Conv_0_act", "Conv_0_run_fish"))
+
         setattr(self, "Conv_0_act", out)
 
         for i in range(1, 4):

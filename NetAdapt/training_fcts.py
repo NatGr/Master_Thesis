@@ -23,12 +23,14 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def validate(model, val_loader, criterion, device):
+def validate(model, val_loader, criterion, device, memory_leak=False):
     """ validation of the model
     :param model: the model of the nn
     :param val_loader: the DataLoader of the validation data
     :param criterion: the criterion used to compute the loss
     :param device: the device used to train the network
+    :param memory_leak: in pytorch 1.0.1.post2, I get a memory leak here unless I call loss.backward() at the end, I
+    have no idea why and this isn't the only weird memory problem I got
     :return: the average top1error over the validation
     """
     losses = AverageMeter()
@@ -39,7 +41,7 @@ def validate(model, val_loader, criterion, device):
 
     begin = time.time()
 
-    for i, (batch_in, batch_target) in enumerate(val_loader):
+    for batch_in, batch_target in val_loader:
 
         batch_in, batch_target = batch_in.to(device), batch_target.to(device)
 
@@ -53,6 +55,9 @@ def validate(model, val_loader, criterion, device):
 
         losses.update(loss.item(), batch_in.size(0))
         errors.update(error.item(), batch_in.size(0))
+
+    if memory_leak:  # see function docstring
+        loss.backward()
 
     print(f' * val\t* Elapsed seconds {time.time() - begin :.1f} \t '
           f'Loss {losses.avg :.3f} \t Error {errors.avg :.3f}')
@@ -103,7 +108,7 @@ def finetune(model, optimizer, criterion, no_steps, dataloader, layer, device):
         loss.backward()
         optimizer.step()
 
-    print(f' * fine tune after pruning {layer}* Elapsed seconds {time.time() - begin :.1f} \t '
+    print(f' * fine tune after pruning {layer} * Elapsed seconds {time.time() - begin :.1f} \t '
           f'Loss {losses.avg :.3f} \t Error {errors.avg :.3f}')
 
 
