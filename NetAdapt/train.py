@@ -76,8 +76,6 @@ if __name__ == '__main__':
         # evaluate on validation set
         error_history.append(validate(model, val_loader, criterion, device))
 
-        model.reset_fisher()  # sets the run_fisher params to None so that they are not save with the rest of the model
-
         if epoch == args.no_epochs:
             torch.save({
                 'epoch': epoch,

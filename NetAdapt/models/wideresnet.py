@@ -107,8 +107,7 @@ class WideResNet(nn.Module):
         if new_mask:
             self.register_buffer(name + '_mask', torch.ones(n_channels_out, device=self.device))
 
-        run_fisher_layer = name + "_run_fish"
-        self.register_buffer(run_fisher_layer, None)
+        setattr(self, name + "_run_fish", None)
 
     def do_nothing(self, grad):
         pass

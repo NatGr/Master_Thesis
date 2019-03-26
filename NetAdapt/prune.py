@@ -27,7 +27,7 @@ parser.add_argument('--learning_rate', default=8e-4, type=float, metavar='LR', h
 parser.add_argument('--steps', default=20, type=int, metavar='epochs', help='no. pruning steps')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
 parser.add_argument('--weight_decay', '--wd', default=0.0005, type=float, metavar='W', help='weight decay')
-parser.add_argument('--short_term_fine_tune', default=20, type=int, help='number of batches ')
+parser.add_argument('--short_term_fine_tune', default=2, type=int, help='number of batches ')
 parser.add_argument('--long_term_fine_tune', default=100, type=int, help='long term fine tune on the whose dataset')
 parser.add_argument('--width', default=2.0, type=float, metavar='D')
 parser.add_argument('--depth', default=40, type=int, metavar='W')
@@ -85,10 +85,10 @@ if __name__ == '__main__':
                                                                         args.short_term_fine_tune))
                                      for layer in model.to_prune]
 
-        model.reset_fisher()  # cleans run_fish from state dict
+        model.reset_fisher()  # cleans run_fish memory
         model.cpu()  # stores it on CPU to avoid having 2 models on GPU at the same time
 
-        for layer, (new_mask, new_num_channels, new_gains) in layer_mask_channels_gains:
+        for layer, (new_mask, new_num_channels, new_gains) in layer_mask_channels_gains[:3]:
             if new_mask is None:
                 continue
 
@@ -127,14 +127,13 @@ if __name__ == '__main__':
         prune_history.append((pruned_layer, number_pruned))
 
         # evaluate on validation set
-        validate(model, holdout_loader, criterion, device)
-        error_history.append(validate(model, val_loader, criterion, device))
+        error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
 
     # long term fine tune
     optimizer = torch.optim.SGD([v for v in model.parameters() if v.requires_grad],
                                 lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
     finetune(model, optimizer, criterion, args.long_term_fine_tune, full_train_loader, "", device)
-    error_history.append(validate(model, val_loader, criterion, device))
+    error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
 
     # Save
     filename = os.path.join('checkpoints', f'{args.save_file}.t7')
