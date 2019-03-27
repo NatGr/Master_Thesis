@@ -96,24 +96,20 @@ class WideResNet(nn.Module):
                 self._make_conv_layer(f"Conv_{sub_net_id}_{i}_2", 1, n_ch_out, n_ch_out)
             else:
                 self._make_conv_layer(f"Conv_{sub_net_id}_{i}_1", 1, n_ch_out, n_ch_out)
-                self._make_conv_layer(f"Conv_{sub_net_id}_{i}_2", 1, n_ch_out, n_ch_out, new_mask=False)
+                self._make_conv_layer(f"Conv_{sub_net_id}_{i}_2", 1, n_ch_out, n_ch_out)
 
-    def _make_conv_layer(self, name, stride, n_channels_in, n_channels_out, new_mask=True):
+    def _make_conv_layer(self, name, stride, n_channels_in, n_channels_out):
         """initializes the attributes of a conv layer, creates a mask for the convolution iff new_mask is set to True"""
         setattr(self, name, nn.Conv2d(n_channels_in, n_channels_out, kernel_size=3, stride=stride, padding=1,
                                       bias=False))
         setattr(self, name + "_bn", nn.BatchNorm2d(n_channels_out))
         setattr(self, name + "_relu", nn.ReLU(inplace=True))
-        if new_mask:
-            self.register_buffer(name + '_mask', torch.ones(n_channels_out, device=self.device))
-
         setattr(self, name + "_run_fish", None)
 
     def do_nothing(self, grad):
         pass
 
     def _forward_subnet(self, subnet_id, x):
-        name_shared_mask = f"Conv_{subnet_id}_0_2_mask"  # name of the mask that is shared by half of the layers
         out = x  # in case n_blocks_per_subnet == 0
 
         for i in range(self.n_blocks_per_subnet):
@@ -122,11 +118,10 @@ class WideResNet(nn.Module):
 
             out = getattr(self, name1)(x)
             out = getattr(self, name1 + "_relu")(getattr(self, name1 + "_bn")(out))
-            out = out * getattr(self, name1 + "_mask")[None, :, None, None]
-
-            out.register_hook(lambda x, act=name1 + "_act", rf=name1 + "_run_fish": self._fisher(x, act, rf))
 
             setattr(self, name1 + "_act", out)
+            out.register_hook(lambda x, act=name1 + "_act", rf=name1 + "_run_fish": self._fisher(x, act, rf))
+
             if self.drop_rate > 0:
                 out = fct.dropout(out, p=self.drop_rate, training=self.training)
             out = getattr(self, name2)(out)
@@ -134,11 +129,9 @@ class WideResNet(nn.Module):
             out = torch.add(out, x if i != 0 else getattr(self, f"Skip_{subnet_id}")(x))
 
             out = getattr(self, name2 + "_relu")(getattr(self, name2 + "_bn")(out))
-            out = out * getattr(self, name_shared_mask)[None, :, None, None]
-
-            out.register_hook(lambda x, act=name2 + "_act", rf=name2 + "_run_fish": self._fisher(x, act, rf))
 
             setattr(self, name2 + "_act", out)
+            out.register_hook(lambda x, act=name2 + "_act", rf=name2 + "_run_fish": self._fisher(x, act, rf))
 
             x = out  # because we will use it in the skip connection of next layer
         return out
@@ -146,11 +139,9 @@ class WideResNet(nn.Module):
     def forward(self, x):
         out = self.Conv_0(x)
         out = self.Conv_0_relu(self.Conv_0_bn(out))
-        out = out * self.Conv_0_mask[None, :, None, None]
-
-        out.register_hook(lambda x: self._fisher(x, "Conv_0_act", "Conv_0_run_fish"))
 
         setattr(self, "Conv_0_act", out)
+        out.register_hook(lambda x: self._fisher(x, "Conv_0_act", "Conv_0_run_fish"))
 
         for i in range(1, 4):
             out = self._forward_subnet(i, out)
@@ -246,19 +237,13 @@ class WideResNet(nn.Module):
         with open(name, 'rb') as file:
             self.perf_table = pickle.load(file)
 
-    def choose_which_filters(self, layer_name, cost_red_obj, no_steps):
-        """chooses first how many and then which filters to remove
+    def choose_which_channels(self, layer_name, num_channels, no_steps):
+        """chooses which channels to remove
         :param layer_name: layer at which we remove filters
-        :param cost_red_obj: the given cost reduction objective (to attain or approach as much as possible)
+        :param num_channels: the number of channels to remove
         :param no_steps: the number of steps we make between each pruning
-        :returns: the new mask, the number of channels pruned and the corresponding budget economised or
-        (None, None, None) if we should not prune in that layer"""
-        num_channels, inference_gains = self.choose_num_filters(layer_name, cost_red_obj)
-        if num_channels is None:
-            return None, None, None
-        new_mask = getattr(self, layer_name + "_mask").clone()
+        :returns: the id of the channels to prune"""
         fisher = getattr(self, layer_name + "_run_fish")
-
         if layer_name.endswith("_0_2"):
             subnet = int(layer_name[5])
             for i in range(1, self.n_blocks_per_subnet):
@@ -267,86 +252,143 @@ class WideResNet(nn.Module):
         else:
             num_layers = 1
 
-        tot_loss = fisher.div(no_steps * num_layers) + 1e6 * (1 - new_mask)  # dummy value to get rid of already
-        # pruned masks
+        tot_loss = fisher.div(no_steps * num_layers)
         _, argmin = torch.topk(tot_loss, k=num_channels, largest=False, dim=0)
-        new_mask[argmin] = 0
+        return argmin
 
-        return new_mask, num_channels, inference_gains
-
-    def choose_num_filters(self, layer_name, cost_red_obj):
-        """chooses how many filters to remove at layer l to attain the given cost reduction objective or approach it
-        as much as possible
-        :returns: the number of channels we chose to remove and the corresponding inference time gains or (None, None)
-        if we cannot prune in this layer anymore"""
-        mask = getattr(self, layer_name + "_mask").detach()
-        init_nbr_out_channels = int(mask.sum().item())
+    def choose_num_channels(self, layer_name, cost_red_obj):
+        """chooses how many channels to remove
+        :param layer_name: layer at which we remove channels
+        :param cost_red_obj: the given cost reduction objective (to attain or approach as much as possible)
+        :returns: the number of channels to prune and achieved cost reduction or None, None if we cannot achieve
+        cost_red_obj"""
+        init_nbr_out_channels = getattr(self, layer_name).out_channels
 
         if layer_name == "Conv_0":  # when we remove one channel, we will influence Skip_1 and Conv_1_0_1 as well
-            conv_1_0_1_out_channels = int(getattr(self, "Conv_1_0_1_mask").detach().sum().item())
-            skip_1_out_channels = int(getattr(self, "Conv_1_0_2_mask").detach().sum().item())
-
             costs_array = self.perf_table[layer_name][2, :]  # we will always have 3 input channels
-            costs_array += self.perf_table["Skip_1"][:, skip_1_out_channels - 1] + \
-                self.perf_table["Conv_1_0_1"][:, conv_1_0_1_out_channels - 1]
+            costs_array += self.perf_table["Skip_1"][:, getattr(self, "Skip_1").out_channels - 1] + \
+                           self.perf_table["Conv_1_0_1"][:, getattr(self, "Conv_1_0_1").out_channels - 1]
 
         elif layer_name.endswith("_0_2"):  # in that case, we have to prune several layers at the same time
             subnet = int(layer_name[5])
 
             # prev_layers, i.e. Skip_x and Conv_x_0_2
-            skip_in_channel = int(getattr(self, f"Conv_{subnet - 1}_0_2_mask").detach().sum().item()) if subnet != 1 \
-                else int(getattr(self, "Conv_0_mask").detach().sum().item())
-            conv_x_0_2_in_channels = int(getattr(self, f"Conv_{subnet}_0_1_mask").detach().sum().item())
-            costs_array = self.perf_table[layer_name][conv_x_0_2_in_channels - 1, :] + \
-                self.perf_table[f"Skip_{subnet}"][skip_in_channel - 1, :]
+            costs_array = self.perf_table[layer_name][getattr(self, layer_name).in_channels - 1, :] + \
+                          self.perf_table[f"Skip_{subnet}"][getattr(self, f"Skip_{subnet}").in_channels - 1, :]
 
             # next_layer
             if subnet != 3:
                 skip_layer = f"Skip_{subnet + 1}"
                 conv_next_subnet = f"Conv_{subnet + 1}_0_1"
-                skip_layer_mask = f"Conv_{subnet + 1}_0_2_mask"
-                skip_out_channel = int(getattr(self, skip_layer_mask).detach().sum().item())
-                conv_xplus1_0_1_out_channels = int(getattr(self, conv_next_subnet + "_mask").detach().sum().item())
-                costs_array += self.perf_table[skip_layer][:, skip_out_channel - 1] + \
-                    self.perf_table[conv_next_subnet][:, conv_xplus1_0_1_out_channels - 1]
+                costs_array += self.perf_table[skip_layer][:, getattr(self, skip_layer).out_channels - 1] + \
+                               self.perf_table[conv_next_subnet][:, getattr(self, conv_next_subnet).out_channels - 1]
             else:
                 costs_array += self.perf_table["FC"][:, 0]
 
             # subnet layers
             for i in range(1, self.n_blocks_per_subnet):
-                prev_layer_mask = f"Conv_{subnet}_{i}_1_mask"
                 layer_name_table = f"Conv_{subnet}_0_2"
-                layer_in_channels = int(getattr(self, prev_layer_mask).detach().sum().item())
-                costs_array += self.perf_table[layer_name_table][layer_in_channels - 1, :]
+                costs_array += self.perf_table[layer_name_table][getattr(self, layer_name_table).in_channels - 1, :]
 
         else:  # layer_name = Conv_x_y_1, we only influence Conv_x_y_2 that is repertoried in perf_table as Conv_x_0_2
-            if layer_name[7] != "0":
-                prev_layer = f"Conv_{layer_name[5]}_0_2"
-                layer_name_table = layer_name[:7] + "1_1"
-            else:
-                if layer_name[5] == "1":
-                    prev_layer = "Conv_0"
-                else:
-                    prev_layer = f"Conv_{int(layer_name[5]) - 1}_0_2"
-                layer_name_table = layer_name
+            layer_name_table = layer_name[:7] + "1_1"
+            next_layer_table = layer_name[:7] + "0_2"
+            next_layer = layer_name[:9] + "2"
 
-            rem_in_channels = int(getattr(self, prev_layer + "_mask").detach().sum().item())
+            costs_array = self.perf_table[layer_name_table][getattr(self, layer_name).in_channels - 1, :] + \
+                      self.perf_table[next_layer_table][:, getattr(self, next_layer).out_channels - 1]
 
-            next_layer = layer_name[:7] + "0_2"
-            next_layer_out_channels = int(getattr(self, next_layer + "_mask").detach().sum().item())
-
-            costs_array = self.perf_table[layer_name_table][rem_in_channels - 1, :] + \
-                self.perf_table[next_layer][:, next_layer_out_channels - 1]
-
+        # determines the number of filters
         prev_cost = costs_array[init_nbr_out_channels - 1]
 
-        for rem_channels in range(init_nbr_out_channels - 1, 0, -1):
+        for rem_channels in range(init_nbr_out_channels - 1, 0, -1):  # could be made O(log(n)) instead
             cost_diff = prev_cost - costs_array[rem_channels - 1]
             if cost_diff > cost_red_obj:
                 return init_nbr_out_channels - rem_channels, cost_diff
 
-        if layer_name.startswith("Conv_") and layer_name.endswith("1"):
+        if layer_name.startswith("Conv_") and layer_name.endswith("1") and prev_cost > cost_red_obj:
             return init_nbr_out_channels, prev_cost  # prune out the block
 
-        print(f"{layer_name} has a surprisingly low number of channels")
-        return None, None  # meaning we should not prune these layers because it would end with the network being cut
+        print(f"{layer_name} cannot be pruned anymore")
+        return None, None
+
+    def prune_channels(self, layer, offsets_to_prune):
+        """modifies the structure of self so as to remove the given channels at the given layer
+        :param layer: the name of the layer that will be pruned
+        :param offsets_to_prune: the offsets of the layers to prune"""
+        self._remove_from_out_channels(layer, offsets_to_prune)  # in all cases
+
+        if layer_name == "Conv_0":  # when we remove one channel, we will influence Skip_1 and Conv_1_0_1 as well
+            self._remove_from_in_channels("Conv_1_0_1", offsets_to_prune)
+            self._remove_from_in_channels("Skip_1", offsets_to_prune)
+
+        elif layer_name.endswith("_0_2"):  # in that case, we have to prune several layers at the same time
+            subnet = int(layer_name[5])
+
+            # prev_layer, i.e. Skip_x
+            self._remove_from_out_channels(f"Skip_{subnet}", offsets_to_prune)
+
+            # next_layer
+            if subnet != 3:
+                self._remove_from_in_channels(f"Conv_{subnet + 1}_0_1", offsets_to_prune)
+                self._remove_from_in_channels(f"Skip_{subnet + 1}", offsets_to_prune)
+            else:
+                self._remove_from_in_channels("FC", offsets_to_prune)
+
+            # subnet layers
+            for i in range(1, self.n_blocks_per_subnet):
+                self._remove_from_out_channels(f"Conv_{subnet}_0_2", offsets_to_prune)
+
+        else:  # we only influence Conv_x_y_2
+            self._remove_from_in_channels(layer_name[:9] + "2", offsets_to_prune)
+
+    def _remove_from_in_channels(self, layer_name, offsets_to_prune):
+        """removes the input channels to the layer
+        :param layer_name: the name of the layer that will be pruned
+        :param offsets_to_prune: the offsets of the layers to prune"""
+        layer = getattr(self, layer_name)
+        remaining_channels = offsets_to_prune == 0
+        num_remaining_channels = int(torch.sum(remaining_channels).item())
+        if layer_name == "FC":
+            new_layer = nn.Linear(num_remaining_channels, self.num_classes)
+            new_layer.weight.data = layer.weight.data[:, remaining_channels]
+            new_layer.bias.data = layer.bias.data
+
+        else:
+            new_layer = nn.Conv2d(in_channels=num_remaining_channels, out_channels=layer.out_channels,
+                                  kernel_size=layer.kernel_size, stride=layer.stride, padding=layer.padding,
+                                  dilation=layer.dilation, groups=layer.groups, bias=layer.bias)
+            new_layer.weight.data = layer.weight.data[:, remaining_channels, :, :]  # out_ch * in_ch * height * width
+            new_layer.bias.data = layer.bias.data
+        setattr(self, layer_name, new_layer)
+
+    def _remove_from_out_channels(self, layer_name, offsets_to_prune):
+        """removes the output channels to the layer and adapts the corresponding batchnorm layers (in the case of
+        Skip_x, Conv_x_0_2_bn is left unchanged)
+        :param layer: the name of the layer that will be pruned
+        :param offsets_to_prune: the offsets of the layers to prune"""
+        layer = getattr(self, layer_name)
+        remaining_channels = offsets_to_prune == 0
+        num_remaining_channels = int(torch.sum(remaining_channels).item())
+
+        # conv layer
+        new_layer = nn.Conv2d(in_channels=layer.in_channels, out_channels=num_remaining_channels,
+                              kernel_size=layer.kernel_size, stride=layer.stride, padding=layer.padding,
+                              dilation=layer.dilation, groups=layer.groups, bias=layer.bias)
+        new_layer.weight.data = layer.weight.data[remaining_channels, :, :, :]  # out_ch * in_ch * height * width
+        new_layer.bias.data = layer.bias.data[remaining_channels]
+        setattr(self, layer_name, new_layer)
+
+        # batchnorm layer
+        if layer_name[:4] != "Skip":
+            bn_layer = getattr(self, layer_name + "_bn")
+            new_bn_layer = nn.BatchNorm2d(num_remaining_channels, eps=bn_layer.eps, momentum=bn_layer.momentum,
+                                          affine=bn_layer.affine, track_running_stats=bn_layer.track_running_stats)
+            if new_bn_layer.affine:
+                new_bn_layer.weight.data = bn_layer.weight.data[num_remaining_channels]
+                new_bn_layer.bias.data = bn_layer.bias.data[num_remaining_channels]
+
+            if new_bn_layer.track_running_stats:
+                new_bn_layer.running_mean.data = bn_layer.running_mean.data[num_remaining_channels]
+                new_bn_layer.running_var.data = bn_layer.running_var.data[num_remaining_channels]
+                new_bn_layer.num_batches_tracked.data = bn_layer.num_batches_tracked.data

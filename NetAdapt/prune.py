@@ -80,17 +80,17 @@ if __name__ == '__main__':
         best_network, best_error, gains, pruned_layer, number_pruned = None, 100, None, None, None
 
         # done in two step to reduce number of memory transfers
-        layer_mask_channels_gains = [(layer, model.choose_which_filters(layer,
-                                                                        args.red_fact,
-                                                                        args.short_term_fine_tune))
-                                     for layer in model.to_prune]
+        layer_mask_channels_gains = []
+        for layer in model.to_prune:
+            channels, gains = model.choose_num_channels(layer, args.red_fact)
+            if channels is not None:
+                mask = model.choose_which_channels(layer, channels, args.short_term_fine_tune)
+                layer_mask_channels_gains.append((layer, mask, channels, gains))
 
         model.reset_fisher()  # cleans run_fish memory
         model.cpu()  # stores it on CPU to avoid having 2 models on GPU at the same time
 
-        for layer, (new_mask, new_num_channels, new_gains) in layer_mask_channels_gains[:3]:
-            if new_mask is None:
-                continue
+        for layer, (offsets_to_prune, new_num_channels, new_gains) in layer_mask_channels_gains[:3]:
 
             torch.cuda.empty_cache()
             # print(torch.cuda.memory_allocated() / 10 ** 9, 'GB allocated')  # in case there are memory leaks
@@ -99,7 +99,7 @@ if __name__ == '__main__':
             new_model = build_model(args, device)
             new_model.load_state_dict(model.state_dict())  # copy weights and stuff
             new_model.perf_table = model.perf_table
-            setattr(new_model, layer + "_mask", new_mask)
+            new_model.prune_channels(layer, offsets_to_prune)
 
             new_model.to(device)
 

@@ -1,6 +1,6 @@
 """This script just trains models from scratch, to later be pruned
 @Author: Nathan Greffe
-python train.py --net='res' --depth=40 --width=2.0 --save_file='res-40-2'"""
+python train.py --net='res' --depth=40 --width=2.0 --save_file='res-40-2-no-full-train'"""
 
 import argparse
 import json
@@ -13,7 +13,11 @@ from data_fcts import *
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N', help='number of data loading workers')
 parser.add_argument('--save_file', default='saveto', type=str, help='save file for checkpoints')
-parser.add_argument('--data_loc', default='~/Documents/CIFAR-10')
+parser.add_argument('--data_loc', default='~/Documents/CIFAR-10', help='folder containing the CIFAR-10 dataset')
+parser.add_argument('--full_train', dest='full_train', action='store_true',
+                    help='trains with the full dataset (NetAdapt makes more sense if base model is trained with'
+                         ' training set only)')
+parser.set_defaults(full_train=False)
 
 # Learning specific arguments
 parser.add_argument('-b', '--batch_size', default=128, type=int, metavar='N', help='mini-batch size (default: 128)')
@@ -49,7 +53,11 @@ error_history = []
 model.to(device)
 
 # base datasets
-full_train_loader, val_loader = get_full_train_val(args.data_loc, args.workers, args.batch_size)
+if args.full_train:
+    train_loader, val_loader = get_full_train_val(args.data_loc, args.workers, args.batch_size)
+else:
+    train_loader, _ = get_train_holdout(args.data_loc, args.workers, args.batch_size)
+    _, val_loader = get_full_train_val(args.data_loc, args.workers, args.batch_size)
 
 
 if __name__ == '__main__':
@@ -72,7 +80,7 @@ if __name__ == '__main__':
 
         print(f"Epoch {epoch} -- lr is {optimizer.param_groups[0]['lr']}:")
 
-        train(model, optimizer, full_train_loader, criterion, device)
+        train(model, optimizer, train_loader, criterion, device)
         # evaluate on validation set
         error_history.append(validate(model, val_loader, criterion, device))
 
