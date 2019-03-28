@@ -1,15 +1,14 @@
 """Pruning script
-@Author: Nathan Greffe"""
+@Author: Nathan Greffe
+python prune.py --save_file='res-40-2-pruned' --red_fact=0.002 --base_model='res-40-2-no-full-train'
+--perf_table='res-40-2'"""
 
 import argparse
-import pdb
-import gc
 from functools import reduce
 
 from models.wideresnet import *
 from training_fcts import *
 from data_fcts import *
-import copy
 
 parser = argparse.ArgumentParser(description='Pruning')
 parser.add_argument('--workers', default=0, type=int, metavar='N', help='number of data loading workers')
@@ -27,8 +26,8 @@ parser.add_argument('--learning_rate', default=8e-4, type=float, metavar='LR', h
 parser.add_argument('--steps', default=20, type=int, metavar='epochs', help='no. pruning steps')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
 parser.add_argument('--weight_decay', '--wd', default=0.0005, type=float, metavar='W', help='weight decay')
-parser.add_argument('--short_term_fine_tune', default=2, type=int, help='number of batches ')
-parser.add_argument('--long_term_fine_tune', default=100, type=int, help='long term fine tune on the whose dataset')
+parser.add_argument('--short_term_fine_tune', default=100, type=int, help='number of batches ')
+parser.add_argument('--long_term_fine_tune', default=1000, type=int, help='long term fine tune on the whose dataset')
 parser.add_argument('--width', default=2.0, type=float, metavar='D')
 parser.add_argument('--depth', default=40, type=int, metavar='W')
 
@@ -39,10 +38,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 
-def build_model(args, device):
-    """build the model given the arguments on the device, take care that you still need to call model.to(device)"""
+def build_model(args, device, prev_model=None):
+    """build the model given the arguments on the device, take care that you still need to call model.to(device)
+    if prev_model is not None, we will copy the number of channels in all the layers of prev_model"""
     if args.net == 'res':
-        return WideResNet(args.depth, args.width, device)
+        return WideResNet(args.depth, args.width, device, prev_model)
     else:
         raise ValueError('pick a valid net')
 
@@ -50,6 +50,7 @@ def build_model(args, device):
 model = build_model(args, device)
 error_history = []
 prune_history = []
+table_costs_history = []
 model.load_state_dict(torch.load(os.path.join('checkpoints', f'{args.base_model}.t7'),
                                  map_location='cpu')['state_dict'], strict=True)
 model.to(device)
@@ -69,8 +70,15 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD([v for v in model.parameters() if v.requires_grad],
                                 lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
+
+    prune_history.append(None)
+    table_costs_history.append(model.total_cost)
+    error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
+
     finetune(model, optimizer, criterion, args.short_term_fine_tune, train_loader, "", device)  # first fine-tune to
     # have gradients so that we can fisher-prune some layers
+
+    target_gains = args.red_fact * model.total_cost / args.steps  # gains at each epoch to achieve the reduction factor
 
     for epoch in range(1, args.steps+1):
 
@@ -82,24 +90,25 @@ if __name__ == '__main__':
         # done in two step to reduce number of memory transfers
         layer_mask_channels_gains = []
         for layer in model.to_prune:
-            channels, gains = model.choose_num_channels(layer, args.red_fact)
-            if channels is not None:
-                mask = model.choose_which_channels(layer, channels, args.short_term_fine_tune)
-                layer_mask_channels_gains.append((layer, mask, channels, gains))
+            num_channels, gains = model.choose_num_channels(layer, target_gains)
+            if num_channels is not None:
+                remaining_channels = model.choose_which_channels(layer, num_channels, args.short_term_fine_tune)
+                layer_mask_channels_gains.append((layer, remaining_channels, num_channels, gains))
 
-        model.reset_fisher()  # cleans run_fish memory
+        model.reset_fisher()  # cleans run_fish from memory
         model.cpu()  # stores it on CPU to avoid having 2 models on GPU at the same time
 
-        for layer, (offsets_to_prune, new_num_channels, new_gains) in layer_mask_channels_gains[:3]:
+        for layer, remaining_channels, new_num_channels, new_gains in layer_mask_channels_gains:
 
-            torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
             # print(torch.cuda.memory_allocated() / 10 ** 9, 'GB allocated')  # in case there are memory leaks
 
             # creates a new model with the new mask to be fine_tuned
-            new_model = build_model(args, device)
-            new_model.load_state_dict(model.state_dict())  # copy weights and stuff
+            new_model = build_model(args, device, model)
+            new_model.load_state_dict(model.state_dict(), strict=True)  # copy weights and stuff
             new_model.perf_table = model.perf_table
-            new_model.prune_channels(layer, offsets_to_prune)
+            new_model.total_cost = model.total_cost - new_gains
+            new_model.prune_channels(layer, remaining_channels)
 
             new_model.to(device)
 
@@ -107,7 +116,7 @@ if __name__ == '__main__':
                                         lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
             finetune(new_model, optimizer, criterion, args.short_term_fine_tune, train_loader, layer, device)
 
-            new_error = validate(new_model, holdout_loader, criterion, device, memory_leak=True)
+            new_error = validate(new_model, holdout_loader, criterion, device, val_set_name="holdout", memory_leak=True)
 
             if new_error < best_error:
                 new_model.cpu()
@@ -125,6 +134,7 @@ if __name__ == '__main__':
         model = best_network
 
         prune_history.append((pruned_layer, number_pruned))
+        table_costs_history.append(model.total_cost)
 
         # evaluate on validation set
         error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
@@ -134,6 +144,8 @@ if __name__ == '__main__':
                                 lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
     finetune(model, optimizer, criterion, args.long_term_fine_tune, full_train_loader, "", device)
     error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
+    prune_history.append(None)
+    table_costs_history.append(table_costs_history[-1])
 
     # Save
     filename = os.path.join('checkpoints', f'{args.save_file}.t7')
@@ -142,4 +154,5 @@ if __name__ == '__main__':
         'state_dict': model.state_dict(),
         'error_history': error_history,
         'prune_history': prune_history,
+        'table_costs_history': table_costs_history,
     }, filename)

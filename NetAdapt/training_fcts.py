@@ -23,12 +23,13 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def validate(model, val_loader, criterion, device, memory_leak=False):
+def validate(model, val_loader, criterion, device, val_set_name="val", memory_leak=False):
     """ validation of the model
     :param model: the model of the nn
     :param val_loader: the DataLoader of the validation data
     :param criterion: the criterion used to compute the loss
     :param device: the device used to train the network
+    :param val_set_name: name to display on the print function to indicate which dataset we use for validation
     :param memory_leak: in pytorch 1.0.1.post2, I get a memory leak here unless I call loss.backward() at the end, I
     have no idea why and this isn't the only weird memory problem I got
     :return: the average top1error over the validation
@@ -59,7 +60,7 @@ def validate(model, val_loader, criterion, device, memory_leak=False):
     if memory_leak:  # see function docstring
         loss.backward()
 
-    print(f' * val\t* Elapsed seconds {time.time() - begin :.1f} \t '
+    print(f' * {val_set_name}\t* Elapsed seconds {time.time() - begin :.1f} \t '
           f'Loss {losses.avg :.3f} \t Error {errors.avg :.3f}')
 
     return errors.avg
