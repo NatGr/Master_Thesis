@@ -1,6 +1,6 @@
 """This script just trains models from scratch, to later be pruned
 @Author: Nathan Greffe
-python train.py --net='res' --depth=40 --width=2.0 --save_file='res-40-2-no-full-train'"""
+'"""
 
 import argparse
 import json
@@ -36,8 +36,8 @@ parser.add_argument('--depth', '-d', default=40, type=int, metavar='D', help='de
 parser.add_argument('--width', '-w', default=2.0, type=float, metavar='W', help='width of wideresnet')
 
 
-if not os.path.exists('checkpoints/'):
-    os.makedirs('checkpoints/')
+if not os.path.exists('checkpoints'):
+    os.makedirs('checkpoints')
 
 args = parser.parse_args()
 

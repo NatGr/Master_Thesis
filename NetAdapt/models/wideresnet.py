@@ -80,7 +80,7 @@ class WideResNet(nn.Module):
         else:
             setattr(self, running_fisher_name, running_fisher_prev + del_k)
 
-        # This is needed to avoid a memory leak! I spent 3 days on this :'( :'(
+        # This is needed to avoid a memory leak caused by a circular reference between object and object.act_name
         setattr(self, act_name, None)
 
     def reset_fisher(self):
@@ -172,88 +172,6 @@ class WideResNet(nn.Module):
         out = out.view(out.size(0), -1)
         return self.FC(out)
 
-    def compute_table(self, file_name):
-        """compute the associated real time inference table and save it as in a pickle file
-        :param file_name: the name of the pickle file (without the extension), will be put in perf_tables folder"""
-
-        # get for each element of the table the characteristics to test
-        model_params = {}  # name -> (width/height, max_in_channels, max_out_channels, stride)
-
-        for name in self.compute_table_on:
-            if name != "FC":
-                layer = getattr(self, name)
-                if name == "Conv_0" or name == "Skip_1" or name == "Skip_2" or name.startswith("Conv_1") or \
-                        name == "Conv_2_0_1":
-                    width = 32
-                elif name.startswith("Conv_2") or name == "Skip_3" or name == "Conv_3_0_1":
-                    width = 16
-                else:  # name.startswith("Conv_3") or name == "FC"
-                    width = 8
-                model_params[name] = (width, layer.in_channels, layer.out_channels, layer.stride[0])
-            else:
-                model_params["FC"] = (8, self.FC.in_features, 1, None)  # 1 and not self.FC.out_features because we
-                # won't touch the final output layers
-
-        # create the table
-        perf_table = {}
-        number_of_measures = 10
-
-        self.make_conv_model(32, 32, 2)(torch.rand(1, 32, 32, 32, device=self.device))
-        # so that pytorch caches whatever he needs
-
-        for name in self.compute_table_on:
-            (width, max_in_channels, max_out_channels, stride) = model_params[name]
-            table_entry = np.zeros((max_in_channels, max_out_channels))
-
-            for in_channels in range(1, max_in_channels + 1):
-                for out_channels in range(1, max_out_channels + 1):
-                    measures = np.zeros(number_of_measures)
-
-                    for k in range(number_of_measures):
-                        input_tensor = torch.rand(1, in_channels, width, width, device=self.device)
-                        if name != "FC":
-                            model = self.make_conv_model(in_channels, out_channels, stride)
-                        else:
-                            model = self.make_fc_model(in_channels, width)
-                        begin = time.perf_counter()
-                        model(input_tensor)
-                        measures[k] = time.perf_counter() - begin
-
-                    table_entry[in_channels - 1, out_channels - 1] = np.median(measures)
-            perf_table[name] = table_entry
-
-        with open(os.path.join('perf_tables', f"{file_name}.pickle"), 'wb') as file:
-            pickle.dump(perf_table, file)
-
-    def make_conv_model(self, in_channels, out_channels, stride):
-        """creates a small sequential model composed of a convolution, a batchnorm and a relu activation
-        the model is set to eval mode since it is used to measure evaluation time"""
-        model = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
-        model.to(self.device)
-        model.eval()
-        return model
-
-    def make_fc_model(self, in_channels, width):
-        """creates a small sequential model composed of an average pooling and a fully connected layer
-        the model is set to eval mode since it is used to measure evaluation time"""
-
-        class Flatten(nn.Module):  # not defined in pytorch
-            def forward(self, x):
-                return x.view(x.size(0), -1)
-
-        model = nn.Sequential(
-            nn.AvgPool2d(width),
-            Flatten(),
-            nn.Linear(in_channels, self.num_classes)
-        )
-        model.to(self.device)
-        model.eval()
-        return model
-
     def load_table(self, name):
         """loads the pickle file coresponding to table and prints the total cost of the network"""
         with open(name, 'rb') as file:
@@ -262,7 +180,7 @@ class WideResNet(nn.Module):
         self.total_cost = 0
         for layer_name in self.compute_table_on:
             if layer_name == "FC":
-                self.total_cost += self.perf_table["FC"][self.FC.in_features - 1, 0]
+                self.total_cost += self.get_cost("FC", self.FC.in_features, 1)
             else:
                 if layer_name.endswith("_0_2"):
                     factor = self.n_blocks_per_subnet  # number of times a similar conv exists in the network
@@ -272,11 +190,30 @@ class WideResNet(nn.Module):
                     factor = 1
                 layer = getattr(self, layer_name, None)
                 if layer is not None:
-                    self.total_cost += factor * self.perf_table[layer_name][
-                        layer.in_channels - 1, layer.out_channels - 1] # initially, the layers of the same type in the
-                    # same subnetwork have the same number of channels
+                    if layer_name.startswith("Skip") or layer_name.endswith("_0_1"):
+                        layer_name_table = f"Stride_{layer_name[5]}"
+                    elif layer_name.endswith("_0_2") or layer_name.endswith("_1_1"):
+                        layer_name_table = f"No_Stride_{layer_name[5]}"
+                    else:
+                        layer_name_table = layer_name
+
+                    self.total_cost += factor * self.get_cost(layer_name_table, layer.in_channels, layer.out_channels)
+                    # initially, the layers of the same type in the same subnetwork have the same number of channels
 
         print(f"the total cost of the model is: {self.total_cost} according to the perf table")
+
+    def get_cost(self, layer_name, in_channel, out_channel):
+        """ get the cost of layer layer_name when it has in_channel and out_channel channels, None means we return all
+        input channels"""
+        if in_channel is None:
+            if out_channel is None:
+                return self.perf_table[layer_name][:, :]
+            else:
+                return self.perf_table[layer_name][:, out_channel - 1]
+        elif out_channel is None:
+            return self.perf_table[layer_name][in_channel - 1, :]
+        else:
+            return self.perf_table[layer_name][in_channel - 1, out_channel - 1]
 
     def choose_which_channels(self, layer_name, num_channels, no_steps):
         """chooses which channels that remains after the pruning
@@ -313,57 +250,57 @@ class WideResNet(nn.Module):
         print(f"{layer_name} has {init_nbr_out_channels} output channels")
 
         if layer_name == "Conv_0":  # when we remove one channel, we will influence Skip_1 and Conv_1_0_1 as well
-            costs_array = self.perf_table[layer_name][2, :]  # we will always have 3 input channels
-            costs_array += self.perf_table["Skip_1"][:, getattr(self, "Skip_1").out_channels - 1]
+            costs_array = self.get_cost(layer_name, 2, None)  # we will always have 3 input channels
+            costs_array += self.get_cost("Stride_1", None, getattr(self, "Skip_1").out_channels)
 
             conv_1_0_1 = getattr(self, "Conv_1_0_1", None)
             if conv_1_0_1 is not None:  # the layer could have been entirely pruned away
-                costs_array += self.perf_table["Conv_1_0_1"][:, conv_1_0_1.out_channels - 1]
+                costs_array += self.get_cost("Stride_1", None, conv_1_0_1.out_channels)  # Conv_x_0_1 has same costs
+                # as Skip_x
 
         elif layer_name.endswith("_0_2"):  # in that case, we have to prune several layers at the same time
             subnet = int(layer_name[5])
 
             # prev_layer, i.e. Skip_x
-            costs_array = self.perf_table[f"Skip_{subnet}"][getattr(self, f"Skip_{subnet}").in_channels - 1, :]
+            costs_array = self.get_cost(f"Stride_{subnet}", getattr(self, f"Skip_{subnet}").in_channels, None)
 
             # next_layer
             if subnet != 3:
                 skip_layer = f"Skip_{subnet + 1}"
                 conv_next_subnet = f"Conv_{subnet + 1}_0_1"
-                costs_array += self.perf_table[skip_layer][:, getattr(self, skip_layer).out_channels - 1] + \
-                               self.perf_table[conv_next_subnet][:, getattr(self, conv_next_subnet).out_channels - 1]
+                table_name = f"Stride_{subnet + 1}"
+                costs_array += self.get_cost(table_name, None, getattr(self, skip_layer).out_channels) + \
+                               self.get_cost(table_name, None, getattr(self, conv_next_subnet).out_channels)
             else:
-                costs_array += self.perf_table["FC"][:, 0]
+                costs_array += self.get_cost("FC", None, 1)
 
             # subnet layers, we change the output of Conv_x_i_2 and the input of Conv_x_j_1 (j != 0)
-            out_layer_name_table = f"Conv_{subnet}_0_2"
+            layer_name_table = f"No_Stride_{subnet}"
             for i in range(self.n_blocks_per_subnet):
                 out_layer_name = f"Conv_{subnet}_{i}_2"
                 out_layer = getattr(self, out_layer_name, None)
                 if out_layer is not None:
-                    costs_array += self.perf_table[out_layer_name_table][out_layer.in_channels - 1, :]
+                    costs_array += self.get_cost(layer_name_table, out_layer.in_channels, None)
 
-            in_layer_name_table = f"Conv_{subnet}_1_1"
             for j in range(1, self.n_blocks_per_subnet):
                 in_layer_name = f"Conv_{subnet}_{j}_1"
                 in_layer = getattr(self, in_layer_name, None)
                 if in_layer is not None:
-                    costs_array += self.perf_table[in_layer_name_table][:, in_layer.out_channels - 1]
+                    costs_array += self.get_cost(layer_name_table, None, in_layer.out_channels)
 
         else:  # layer_name = Conv_x_y_1, we only influence Conv_x_y_2 that is registered in perf_table as Conv_x_0_2
             # since we got here, Conv_x_y_1 cannot be none
-            layer_name_table = layer_name[:7] + "1_1"
-            next_layer_table = layer_name[:7] + "0_2"
+            layer_name_table = f"No_Stride_{layer_name[5]}"
             next_layer = layer_name[:9] + "2"
 
-            costs_array = self.perf_table[layer_name_table][getattr(self, layer_name).in_channels - 1, :] + \
-                      self.perf_table[next_layer_table][:, getattr(self, next_layer).out_channels - 1]
+            costs_array = self.get_cost(layer_name_table, getattr(self, layer_name).in_channels, None) + \
+                          self.get_cost(layer_name_table, None, getattr(self, next_layer).out_channels)
 
         # determines the number of filters
         prev_cost = costs_array[init_nbr_out_channels - 1]
 
         for rem_channels in range(init_nbr_out_channels - 1, 0, -1):  # could be made O(log(n)) instead
-            cost_diff = prev_cost - costs_array[rem_channels - 1]
+            cost_diff = prev_cost - costs_array[rem_channels - 1]  # -1 because we are directly accessing a cost_array
             if cost_diff > cost_red_obj:
                 return init_nbr_out_channels - rem_channels, cost_diff
 

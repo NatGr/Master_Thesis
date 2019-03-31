@@ -1,7 +1,6 @@
 """Pruning script
 @Author: Nathan Greffe
-python prune.py --save_file='res-40-2-pruned' --red_fact=0.002 --base_model='res-40-2-no-full-train'
---perf_table='res-40-2'"""
+"""
 
 import argparse
 from functools import reduce
@@ -14,7 +13,7 @@ parser = argparse.ArgumentParser(description='Pruning')
 parser.add_argument('--workers', default=0, type=int, metavar='N', help='number of data loading workers')
 parser.add_argument('--save_file', default='wrn16_2_p', type=str, help='save file for checkpoints')
 parser.add_argument('--data_loc', default='~/Documents/CIFAR-10', type=str, help='where is the dataset')
-parser.add_argument('--red_fact', type=float, help="proportion of inference time that will approx be pruned away")
+parser.add_argument('--pruning_fact', type=float, help="proportion of inference time that will approx be pruned away")
 parser.add_argument('--base_model', default='base_model', type=str, help='basemodel (in folder checkpoints)')
 parser.add_argument('--perf_table', default='res-40-2', type=str, help='the perf_table (assumed to be in perf_tables '
                                                                        'folders and without the extension)')
@@ -78,7 +77,7 @@ if __name__ == '__main__':
     finetune(model, optimizer, criterion, args.short_term_fine_tune, train_loader, "", device)  # first fine-tune to
     # have gradients so that we can fisher-prune some layers
 
-    target_gains = args.red_fact * model.total_cost / args.steps  # gains at each epoch to achieve the reduction factor
+    target_gains = args.pruning_fact * model.total_cost / args.steps  # gains at each epoch to achieve the reduction
 
     for epoch in range(1, args.steps+1):
 

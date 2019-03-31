@@ -31,7 +31,7 @@ def validate(model, val_loader, criterion, device, val_set_name="val", memory_le
     :param device: the device used to train the network
     :param val_set_name: name to display on the print function to indicate which dataset we use for validation
     :param memory_leak: in pytorch 1.0.1.post2, I get a memory leak here unless I call loss.backward() at the end, I
-    have no idea why and this isn't the only weird memory problem I got
+    have no idea why
     :return: the average top1error over the validation
     """
     losses = AverageMeter()
