@@ -1,7 +1,8 @@
 """
 computes the table from a Network
 @Author: Nathan Greffe
-take care that this script uses tensorflow and not pytorch
+take care that this script uses tensorflow and not pytorch, it is also compatible with python 2.7 unlike all the others
+that only works with python3
 
 the compute table generated contains, for each compute_table_on_layer, an (nbr_ch_in * nbr_ch_out) numpy array such
 that array[in_ch-1, out_ch-1] = cost of a layer with in_ch and out_ch channels
@@ -127,9 +128,9 @@ else:
                 # Test model on random input data.
                 input_data = np.array(np.random.random_sample((10, width, width, in_channels)), dtype=np.float32)
 
-                begin = time.perf_counter()
+                begin = time.time()  # time.time() to be compatible with python 2.7
                 model.predict(input_data, batch_size=10)
-                measures[k] = time.perf_counter() - begin
+                measures[k] = time.time() - begin
 
             return np.median(measures)
 
