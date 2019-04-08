@@ -77,7 +77,7 @@ else:
 
             # Loads TFLite model and get measures
             command_line = benchmark_loc + " --graph=" + tmp_tflite_file + \
-                           " --min_secs=0 --warmup_min_secs=0 --num_runs=" + number_of_measures + \
+                           " --min_secs=0 --warmup_min_secs=0 --num_runs=" + str(number_of_measures) + \
                            " |& tr -d '\n' | awk '{print $NF}'"  # tr removes the \n and awk gets the last element of
             # the outputs message, |& is used before tr because we want to pipe strderr and not stdout
             result = int(subprocess.check_output(command_line, shell=True)) / 10**6  # result given in microseconds
@@ -213,7 +213,7 @@ if __name__ == '__main__':
             print(str(i) + "table out of" + str(len(compute_table_on)) + "done")
 
             for in_channels in range(1, max_in_channels + 1):
-                print(str(in_channels) + "input_channels out of" + max_in_channels)
+                print(str(in_channels) + "input_channels out of" + str(max_in_channels))
                 for out_channels in range(1, max_out_channels + 1):
                     if args.eval_method == "pytorch":
                         measures = np.zeros(args.num_measures)
