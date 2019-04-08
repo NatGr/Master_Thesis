@@ -47,7 +47,7 @@ else:
     from tensorflow.keras.models import Model, save_model
     from tensorflow.keras.optimizers import SGD
     from tensorflow.keras import backend as keras_backend
-    from tensorflow.contrib import lite
+    from tensorflow import lite
 
     if keras_backend.image_data_format() != 'channels_last':
         raise ValueError('channels_last data format expected')  # channels_last is said to run faster on cpu
