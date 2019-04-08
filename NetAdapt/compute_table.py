@@ -13,6 +13,7 @@ import pickle
 import numpy as np
 import argparse
 import os
+import subprocess
 
 parser = argparse.ArgumentParser(description='Computing table')
 parser.add_argument('--save_file', default='saveto', type=str, help='file in which to save the table')
@@ -22,12 +23,16 @@ parser.add_argument('--width', default=2.0, type=float, help='widen_factor of wi
 parser.add_argument('--num_measures', default=11, type=int, help='number of measures to take teh median from')
 parser.add_argument('--img_size', default=32, type=int, help='width and height of the input image')
 parser.add_argument('--num_classes', default=10, type=int, help='number of classes we are classifying between')
-parser.add_argument('--tmp_folder', default='/dev/shm/tmp_models', type=str,
-                    help='folder in which to create the tmp files, by default, uses linux tmpfs file system')
 parser.add_argument('--num_images', default=1, type=int, help='number of images the model makes predictions on at the '
                                                               'same time')
-parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-lite', 'tf-lite-cpu'], default='tf',
+parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-lite', 'tf-lite-python'], default='tf',
                     help='method used to evaluate the model')
+
+# only used with tf-lite and tf-lite-python
+parser.add_argument('--tmp_folder', default='/dev/shm/tmp_models', type=str,
+                    help='folder in which to create the tmp files, by default, uses linux tmpfs file system')
+parser.add_argument('--benchmark_loc', default='/home/pi/tf-lite/benchmark_model', type=str,
+                    help='path toward the tf-lite benchmark_model binary')
 
 args = parser.parse_args()
 if args.eval_method == "pytorch":
@@ -52,6 +57,30 @@ else:
             os.makedirs(args.tmp_folder)
         tmp_keras_file = os.path.join('tmp', 'model.h5')
         tmp_tflite_file = os.path.join('tmp', 'model.tflite')
+
+
+        def get_measure_tf_lite(model, number_of_measures=args.num_measures, tmp_keras_file=tmp_keras_file,
+                                tmp_tflite_file=tmp_tflite_file, benchmark_loc=args.benchmark_loc):
+            """given a model, loads that model in tf_lite and benchmarks the time needed for a prediction in C++ using
+            the benchmark too associated with tf-lite (this tool does not return median but only mean so we will use
+            that instead)
+            :return: the mean of number_of_measures trials"""
+            model.compile(optimizer=SGD(), loss='binary_crossentropy')
+            save_model(model, tmp_keras_file)
+
+            # Convert to TensorFlow Lite model.
+            converter = lite.TFLiteConverter.from_keras_model_file(tmp_keras_file)
+            tflite_model = converter.convert()
+            with open(tmp_tflite_file, "wb") as file:
+                file.write(tflite_model)
+
+            # Loads TFLite model and get measures
+            command_line = benchmark_loc + " --graph=" + tmp_tflite_file + \
+                           " --min_secs=0 --warmup_min_secs=0 --num_runs=" + number_of_measures + \
+                           " |& tr -d '\n' | awk '{print $NF}'"  # tr removes the \n and awk gets the last element of
+            # the outputs message, |& is used before tr because we want to pipe strderr and not stdout
+            result = int(subprocess.check_output(command_line, shell=True)) / 10**6  # result given in microseconds
+            return result
 
 
         def get_median_measure_tf_lite_python(model, number_of_measures=args.num_measures,
@@ -178,7 +207,7 @@ if __name__ == '__main__':
             compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
             # used for Conv_i_j_1 and Conv_i_0_2
 
-        for name, width, max_in_channels, max_out_channels, stride in compute_table_on:
+        for name, width, max_in_channels, max_out_channels, stride in [compute_table_on[2]]:
             table_entry = np.zeros((max_in_channels, max_out_channels))
 
             for in_channels in range(1, max_in_channels + 1):
@@ -206,8 +235,10 @@ if __name__ == '__main__':
 
                         if args.eval_method == "tf":
                             table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf(model)
-                        else:
+                        elif args.eval_method == "tf-lite-python":
                             table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_lite(model)
+                        else:
+                            table_entry[in_channels - 1, out_channels - 1] = get_measure_tf_lite(model)
                         del model
                         keras_backend.clear_session()
             perf_table[name] = table_entry
