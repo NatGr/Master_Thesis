@@ -26,7 +26,7 @@ parser.add_argument('--steps', default=20, type=int, metavar='epochs', help='no.
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
 parser.add_argument('--weight_decay', '--wd', default=0.0005, type=float, metavar='W', help='weight decay')
 parser.add_argument('--short_term_fine_tune', default=100, type=int, help='number of batches ')
-parser.add_argument('--long_term_fine_tune', default=1000, type=int, help='long term fine tune on the whose dataset')
+parser.add_argument('--long_term_fine_tune', default=1000, type=int, help='long term fine tune on the whole dataset')
 parser.add_argument('--width', default=2.0, type=float, metavar='D')
 parser.add_argument('--depth', default=40, type=int, metavar='W')
 
@@ -84,9 +84,9 @@ if __name__ == '__main__':
         print(f"Epoch {epoch} -- lr is {optimizer.param_groups[0]['lr']}:")
 
         # Prune
-        best_network, best_error, gains, pruned_layer, number_pruned = None, 100, None, None, None
+        best_network, best_error, best_gains, pruned_layer, number_pruned = None, None, None, None, None
 
-        # done in two step to reduce number of memory transfers
+        # done in two steps to reduce number of memory transfers
         layer_mask_channels_gains = []
         for layer in model.to_prune:
             num_channels, gains = model.choose_num_channels(layer, target_gains)
@@ -99,14 +99,17 @@ if __name__ == '__main__':
 
         for layer, remaining_channels, new_num_channels, new_gains in layer_mask_channels_gains:
 
+            prev_error = error_history[-1]
+
             # torch.cuda.empty_cache()
             # print(torch.cuda.memory_allocated() / 10 ** 9, 'GB allocated')  # in case there are memory leaks
 
             # creates a new model with the new mask to be fine_tuned
             new_model = build_model(args, device, model)
-            new_model.load_state_dict(model.state_dict(), strict=True)  # copy weights and stuff
+            new_model.load_bigger_state_dict(model.state_dict())  # copy weights and stuff
             new_model.perf_table = model.perf_table
             new_model.total_cost = model.total_cost - new_gains
+            new_model.num_channels_dict = model.num_channels_dict
             new_model.prune_channels(layer, remaining_channels)
 
             new_model.to(device)
@@ -117,10 +120,10 @@ if __name__ == '__main__':
 
             new_error = validate(new_model, holdout_loader, criterion, device, val_set_name="holdout", memory_leak=True)
 
-            if new_error < best_error:
+            if best_error is None or (new_error - prev_error)/new_gains < (best_error - prev_error)/best_gains:
                 new_model.cpu()
                 best_network, best_error, pruned_layer, number_pruned = new_model, new_error, layer, new_num_channels
-                gains = new_gains
+                best_gains = new_gains
             else:
                 del new_model
 
@@ -149,9 +152,13 @@ if __name__ == '__main__':
     # Save
     filename = os.path.join('checkpoints', f'{args.save_file}.t7')
     torch.save({
-        'epoch': args.no_epochs,
+        'epoch': args.steps,
         'state_dict': model.state_dict(),
         'error_history': error_history,
         'prune_history': prune_history,
         'table_costs_history': table_costs_history,
     }, filename)
+
+    filename2 = os.path.join('nbr_channels', f'{args.save_file}.pickle')
+    with open(filename2, 'wb') as file:
+        pickle.dump(model.num_channels_dict, file)

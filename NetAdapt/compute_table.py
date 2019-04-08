@@ -6,6 +6,7 @@ take care that this script uses tensorflow and not pytorch
 the compute table generated contains, for each compute_table_on_layer, an (nbr_ch_in * nbr_ch_out) numpy array such
 that array[in_ch-1, out_ch-1] = cost of a layer with in_ch and out_ch channels
 """
+from __future__ import print_function
 
 import time
 import pickle
@@ -25,7 +26,7 @@ parser.add_argument('--tmp_folder', default='/dev/shm/tmp_models', type=str,
                     help='folder in which to create the tmp files, by default, uses linux tmpfs file system')
 parser.add_argument('--num_images', default=1, type=int, help='number of images the model makes predictions on at the '
                                                               'same time')
-parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-lite'], default='tf',
+parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-lite', 'tf-lite-cpu'], default='tf',
                     help='method used to evaluate the model')
 
 args = parser.parse_args()
@@ -46,16 +47,16 @@ else:
     if keras_backend.image_data_format() != 'channels_last':
         raise ValueError('channels_last data format expected')  # channels_last is said to run faster on cpu
 
-    if args.eval_method == "tf-lite":
+    if args.eval_method == "tf-lite" or args.eval_method == "tf-lite-cpu":
         if not os.path.exists(args.tmp_folder):
             os.makedirs(args.tmp_folder)
         tmp_keras_file = os.path.join('tmp', 'model.h5')
         tmp_tflite_file = os.path.join('tmp', 'model.tflite')
 
 
-        def get_median_measure_tf_lite(model, number_of_measures=args.num_measures, tmp_keras_file=tmp_keras_file,
-                                       tmp_tflite_file=tmp_tflite_file):
-            """given a model, loads that model in tf_lite and benchmarks the time needed for a prediction
+        def get_median_measure_tf_lite_python(model, number_of_measures=args.num_measures,
+                                              tmp_keras_file=tmp_keras_file, tmp_tflite_file=tmp_tflite_file):
+            """given a model, loads that model in tf_lite and benchmarks the time needed for a prediction in python
             :return: the median of number_of_measures trials"""
             measures = np.zeros(number_of_measures)
 
@@ -172,9 +173,9 @@ if __name__ == '__main__':
         compute_table_on = [("Conv_0", fm_sizes[0], 3, n_channels[0], strides[0]),
                             ("FC", fm_sizes[3], n_channels[3], 1, None)]
         for i in range(1, 4):
-            compute_table_on.append((f"Stride_{i}", fm_sizes[i-1], n_channels[i-1], n_channels[i], strides[i-1]))
+            compute_table_on.append(("Stride_" + str(i), fm_sizes[i-1], n_channels[i-1], n_channels[i], strides[i-1]))
             # used for Skip_i and Conv_i_0_1
-            compute_table_on.append((f"No_Stride_{i}", fm_sizes[i], n_channels[i], n_channels[i], 1))
+            compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
             # used for Conv_i_j_1 and Conv_i_0_2
 
         for name, width, max_in_channels, max_out_channels, stride in compute_table_on:
@@ -215,5 +216,5 @@ if __name__ == '__main__':
         raise ValueError('pick a valid net')
 
     # file saving
-    with open(os.path.join('perf_tables', f"{args.save_file}.pickle"), 'wb') as file:
+    with open(os.path.join('perf_tables', str(args.save_file) + '.pickle'), 'wb') as file:
         pickle.dump(perf_table, file)

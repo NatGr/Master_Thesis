@@ -83,7 +83,13 @@ if args.net == 'res':
         model = WideResNet(args.depth, args.width, mask=args.mask)
     else:
         with open(args.channels_morphnet_file, 'rb') as file:
-            channels_dict = {name: channels_rem for name, (channels_rem, _) in pickle.load(file).items()}
+            channels_dict = {}
+            for name, pair in pickle.load(file).items():
+                if type(pair) is tuple:  # pair can be (channels_rem, channels_start) or channels_rem
+                    channels_rem = pair[0]
+                else:
+                    channels_rem = pair
+                channels_dict[name] = channels_rem
             model = WideResNetAllLayersPrunable(args.depth, channels_dict=channels_dict)
 elif args.net == 'dense':
     if not args.bottle:

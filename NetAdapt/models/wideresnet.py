@@ -25,6 +25,7 @@ class WideResNet(nn.Module):
         self.perf_table = None
         self.num_classes = num_classes
         self.total_cost = 0
+        self.num_channels_dict = {}  # dict containing the number of channels remaining for each layer
 
         assert ((depth - 4) % 6 == 0)  # 4 = the initial conv layer + the 3 conv1*1 when we change the width
         self.n_blocks_per_subnet = int((depth - 4) / 6)
@@ -44,6 +45,7 @@ class WideResNet(nn.Module):
 
         if prev_model is None:
             self._make_conv_layer("Conv_0", stride=1, n_channels_in=3, n_channels_out=self.n_channels[0])
+            self.num_channels_dict["Conv_0"] = self.n_channels[0]
         else:
             self._make_conv_layer("Conv_0", stride=1, n_channels_in=3, n_channels_out=prev_model.Conv_0.out_channels)
 
@@ -98,12 +100,18 @@ class WideResNet(nn.Module):
             n_ch_in = self.n_channels[sub_net_id - 1]
             n_ch_out = self.n_channels[sub_net_id]
             setattr(self, skip_name, nn.Conv2d(n_ch_in, n_ch_out, kernel_size=3, stride=stride, padding=1, bias=False))
+            self.num_channels_dict[skip_name] = n_ch_out
             for i in range(self.n_blocks_per_subnet):
+                conv_1 = f"Conv_{sub_net_id}_{i}_1"
+                conv_2 = f"Conv_{sub_net_id}_{i}_2"
                 if i == 0:
-                    self._make_conv_layer(f"Conv_{sub_net_id}_{i}_1", stride, n_ch_in, n_ch_out)
+                    self._make_conv_layer(conv_1, stride, n_ch_in, n_ch_out)
                 else:
-                    self._make_conv_layer(f"Conv_{sub_net_id}_{i}_1", 1, n_ch_out, n_ch_out)
-                self._make_conv_layer(f"Conv_{sub_net_id}_{i}_2", 1, n_ch_out, n_ch_out)
+                    self._make_conv_layer(conv_1, 1, n_ch_out, n_ch_out)
+                self.num_channels_dict[conv_1] = n_ch_out
+
+                self._make_conv_layer(conv_2, 1, n_ch_out, n_ch_out)
+                self.num_channels_dict[conv_2] = n_ch_out
         else:
 
             n_ch_in = getattr(prev_model, skip_name).in_channels
@@ -216,7 +224,7 @@ class WideResNet(nn.Module):
             return self.perf_table[layer_name][in_channel - 1, out_channel - 1]
 
     def choose_which_channels(self, layer_name, num_channels, no_steps):
-        """chooses which channels that remains after the pruning
+        """chooses which channels remains after the pruning
         :param layer_name: layer at which we remove filters
         :param num_channels: the number of channels to remove
         :param no_steps: the number of steps we make between each pruning
@@ -225,7 +233,9 @@ class WideResNet(nn.Module):
         if layer_name.endswith("_0_2"):
             subnet = int(layer_name[5])
             for i in range(1, self.n_blocks_per_subnet):
-                fisher += getattr(self, f"Conv_{subnet}_{i}_2_run_fish")
+                run_fish = getattr(self, f"Conv_{subnet}_{i}_2_run_fish")
+                if run_fish is not None:  # we might have pruned this layer completely
+                    fisher += run_fish
             num_layers = self.n_blocks_per_subnet
         else:
             num_layers = 1
@@ -245,6 +255,7 @@ class WideResNet(nn.Module):
         cost_red_obj"""
         layer = getattr(self, layer_name, None)
         if layer is None:
+            print(f"{layer_name} has been pruned away")
             return None, None
         init_nbr_out_channels = layer.out_channels
         print(f"{layer_name} has {init_nbr_out_channels} output channels")
@@ -269,8 +280,10 @@ class WideResNet(nn.Module):
                 skip_layer = f"Skip_{subnet + 1}"
                 conv_next_subnet = f"Conv_{subnet + 1}_0_1"
                 table_name = f"Stride_{subnet + 1}"
-                costs_array += self.get_cost(table_name, None, getattr(self, skip_layer).out_channels) + \
-                               self.get_cost(table_name, None, getattr(self, conv_next_subnet).out_channels)
+                costs_array += self.get_cost(table_name, None, getattr(self, skip_layer).out_channels)
+                conv_y_0_1 = getattr(self, conv_next_subnet, None)
+                if conv_y_0_1 is not None:
+                    costs_array += self.get_cost(table_name, None, conv_y_0_1.out_channels)
             else:
                 costs_array += self.get_cost("FC", None, 1)
 
@@ -338,7 +351,9 @@ class WideResNet(nn.Module):
 
             # subnet layers
             for i in range(self.n_blocks_per_subnet):
-                self._remove_from_out_channels(f"Conv_{subnet}_{i}_2", remaining_channels)
+                conv_x_i_2 = f"Conv_{subnet}_{i}_2"
+                if getattr(self, conv_x_i_2, None) is not None:
+                    self._remove_from_out_channels(conv_x_i_2, remaining_channels)
 
             for j in range(1, self.n_blocks_per_subnet):
                 conv_x_j_1 = f"Conv_{subnet}_{j}_1"
@@ -346,11 +361,28 @@ class WideResNet(nn.Module):
                     self._remove_from_in_channels(conv_x_j_1, remaining_channels)
 
         else:  # name ends with conv_2_0_1, we only influence Conv_x_y_2
+            next_layer_name = layer_name[:9] + "2"
             if remaining_channels.size(0) != 0:
                 self._remove_from_out_channels(layer_name, remaining_channels)
-                self._remove_from_in_channels(layer_name[:9] + "2", remaining_channels)
+                self._remove_from_in_channels(next_layer_name, remaining_channels)
             else:
                 setattr(self, layer_name, None)
+                setattr(self, next_layer_name, None)
+                self.num_channels_dict[layer_name] = 0
+                self.num_channels_dict[next_layer_name] = 0
+
+    def load_bigger_state_dict(self, state_dict):
+        """used to load a state dict that contains unused parameters (this is needed because when a layer is pruned away
+         completely self.layer = None, it is not removed from state_dict, taken from
+         https://discuss.pytorch.org/t/how-to-load-part-of-pre-trained-model/1113"""
+        model_dict = self.state_dict()
+
+        # 1. filter out unnecessary keys
+        pretrained_dict = {k: v for k, v in state_dict.items() if k in model_dict}
+        # 2. overwrite entries in the existing state dict
+        model_dict.update(pretrained_dict)
+        # 3. load the new state dict
+        self.load_state_dict(pretrained_dict)
 
     def _remove_from_in_channels(self, layer_name, remaining_channels):
         """removes the input channels to the layer
@@ -379,6 +411,7 @@ class WideResNet(nn.Module):
         :param remaining_channels: the offsets of the remaining channels"""
         layer = getattr(self, layer_name)
         num_remaining_channels = remaining_channels.size(0)
+        self.num_channels_dict[layer_name] = num_remaining_channels
 
         # conv layer
         new_layer = nn.Conv2d(in_channels=layer.in_channels, out_channels=num_remaining_channels,
