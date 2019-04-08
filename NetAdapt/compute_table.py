@@ -208,10 +208,12 @@ if __name__ == '__main__':
             compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
             # used for Conv_i_j_1 and Conv_i_0_2
 
-        for name, width, max_in_channels, max_out_channels, stride in [compute_table_on[2]]:
+        for i, name, width, max_in_channels, max_out_channels, stride in enumerate([compute_table_on[2]]):
             table_entry = np.zeros((max_in_channels, max_out_channels))
+            print(i + "table out of" + str(len(compute_table_on)) + "done")
 
             for in_channels in range(1, max_in_channels + 1):
+                print(str(in_channels) + "input_channels out of" + max_in_channels)
                 for out_channels in range(1, max_out_channels + 1):
                     if args.eval_method == "pytorch":
                         measures = np.zeros(args.num_measures)
