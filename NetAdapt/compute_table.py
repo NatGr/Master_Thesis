@@ -26,13 +26,15 @@ parser.add_argument('--img_size', default=32, type=int, help='width and height o
 parser.add_argument('--num_classes', default=10, type=int, help='number of classes we are classifying between')
 parser.add_argument('--num_images', default=1, type=int, help='number of images the model makes predictions on at the '
                                                               'same time')
-parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-lite', 'tf-lite-python'], default='tf',
-                    help='method used to evaluate the model')
+parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-python', 'tf-lite', 'tf-lite-python'],
+                    default='tf-python', help='method used to evaluate the model')
 
-# only used with tf-lite and tf-lite-python
+# only used with tf-lite, tf and tf-lite-python
 parser.add_argument('--tmp_folder', default='/dev/shm/tmp_models', type=str,
                     help='folder in which to create the tmp files, by default, uses linux tmpfs file system')
-parser.add_argument('--benchmark_loc', default='/home/pi/tf-lite/benchmark_model', type=str,
+parser.add_argument('--benchmark_lite_loc', default='/home/pi/tf-lite/benchmark_model', type=str,
+                    help='path toward the tf-lite benchmark_model binary')
+parser.add_argument('--benchmark_tf_loc', default='/home/pi/tensorflow/benchmark_model', type=str,
                     help='path toward the tf-lite benchmark_model binary')
 
 args = parser.parse_args()
@@ -49,11 +51,12 @@ else:
     from tensorflow.keras.optimizers import SGD
     from tensorflow.keras import backend as keras_backend
     from tensorflow import lite
+    import tensorflow as tf
 
     if keras_backend.image_data_format() != 'channels_last':
         raise ValueError('channels_last data format expected')  # channels_last is said to run faster on cpu
 
-    if args.eval_method == "tf-lite" or args.eval_method == "tf-lite-cpu":
+    if args.eval_method == "tf-lite" or args.eval_method == "tf-lite-python":
         if not os.path.exists(args.tmp_folder):
             os.makedirs(args.tmp_folder)
         tmp_keras_file = os.path.join(args.tmp_folder, 'model.h5')
@@ -61,9 +64,9 @@ else:
 
 
         def get_measure_tf_lite(model, number_of_measures=args.num_measures, tmp_keras_file=tmp_keras_file,
-                                tmp_tflite_file=tmp_tflite_file, benchmark_loc=args.benchmark_loc):
+                                tmp_tflite_file=tmp_tflite_file, benchmark_loc=args.benchmark_lite_loc):
             """given a model, loads that model in tf_lite and benchmarks the time needed for a prediction in C++ using
-            the benchmark too associated with tf-lite (this tool does not return median but only mean so we will use
+            the benchmark tool associated with tf-lite (this tool does not return median but only mean so we will use
             that instead)
             :return: the mean of number_of_measures trials"""
             model.compile(optimizer=SGD(), loss='binary_crossentropy')
@@ -117,8 +120,62 @@ else:
 
             return np.median(measures)
 
-    else:
-        def get_median_measure_tf(model, number_of_measures=args.num_measures):
+    elif args.eval_method == 'tf':
+        if not os.path.exists(args.tmp_folder):
+            os.makedirs(args.tmp_folder)
+
+        def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
+            """
+            taken from: https://stackoverflow.com/questions/45466020/how-to-export-keras-h5-to-tensorflow-pb
+            Freezes the state of a session into a pruned computation graph.
+
+            Creates a new computation graph where variable nodes are replaced by
+            constants taking their current value in the session. The new graph will be
+            pruned so subgraphs that are not necessary to compute the requested
+            outputs are removed.
+            @param session The TensorFlow session to be frozen.
+            @param keep_var_names A list of variable names that should not be frozen,
+                                  or None to freeze all the variables in the graph.
+            @param output_names Names of the relevant graph outputs.
+            @param clear_devices Remove the device directives from the graph for better portability.
+            @return The frozen graph definition.
+            """
+            graph = session.graph
+            with graph.as_default():
+                freeze_var_names = list(set(v.op.name for v in tf.global_variables()).difference(keep_var_names or []))
+                output_names = output_names or []
+                output_names += [v.op.name for v in tf.global_variables()]
+                input_graph_def = graph.as_graph_def()
+                if clear_devices:
+                    for node in input_graph_def.node:
+                        node.device = ""
+                frozen_graph = tf.graph_util.convert_variables_to_constants(
+                    session, input_graph_def, output_names, freeze_var_names)
+                return frozen_graph
+
+        def get_mesure_tf(model, number_of_measures=args.num_measures, tmp_dir_name=args.tmp_folder,
+                               tmp_file_name='model.pb', benchmark_loc=args.benchmark_tf_loc):
+            """given a model, saves that model as a .pb file and benchmarks the time needed for a prediction in C++
+            using the benchmark tool associated with tf (this tool does not return median but only mean so we will use
+            that instead)
+            :return: the mean of number_of_measures trials"""
+            model.compile(optimizer=SGD(), loss='binary_crossentropy')
+
+            frozen_graph = freeze_session(keras_backend.get_session(),
+                                          output_names=[out.op.name for out in model.outputs])
+            tf.train.write_graph(frozen_graph, tmp_dir_name, tmp_file_name, as_text=False)
+
+            # Loads model and get measures
+            command_line = benchmark_loc + " --graph=" + os.path.join(tmp_dir_name, tmp_file_name) + \
+                           " --min_secs=0 --warmup_min_secs=0 --num_runs=" + str(number_of_measures) + \
+                           " |& tr -d '\n' | awk '{print $NF}'"  # tr removes the \n and awk gets the last element of
+            # the outputs message, |& is used before tr because we want to pipe strderr and not stdout
+            result = float(subprocess.check_output(command_line, shell=True, executable='/bin/bash')) / 10 ** 6
+            # result given in microseconds
+            return result
+
+    elif args.eval_method == 'tf-python':
+        def get_median_measure_tf_python(model, number_of_measures=args.num_measures):
             """given a model, get the median measure without using tflite
             :return: the median of number_of_measures trials"""
             measures = np.zeros(number_of_measures)
@@ -237,12 +294,14 @@ if __name__ == '__main__':
                         else:
                             model = make_conv_model(inputs, out_channels, stride)
 
-                        if args.eval_method == "tf":
-                            table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf(model)
+                        if args.eval_method == "tf-python":
+                            table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_python(model)
                         elif args.eval_method == "tf-lite-python":
                             table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_lite(model)
-                        else:
+                        elif args.eval_method == "tf-lite":
                             table_entry[in_channels - 1, out_channels - 1] = get_measure_tf_lite(model)
+                        elif args.eval_method == "tf":
+                            table_entry[in_channels - 1, out_channels - 1] = get_mesure_tf(model)
                         del model
                         keras_backend.clear_session()
             perf_table[name] = table_entry
