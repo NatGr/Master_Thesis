@@ -1,13 +1,12 @@
 """
 computes the table from a Network
 @Author: Nathan Greffe
-take care that this script uses tensorflow and not pytorch, it is also compatible with python 2.7 unlike all the others
-that only works with python3
+take care that this script uses tensorflow and not pytorch, it is also compatible with python 3.5 unlike all the others
+that only works with python3.6 (f-strings <3 <3)
 
 the compute table generated contains, for each compute_table_on_layer, an (nbr_ch_in * nbr_ch_out) numpy array such
 that array[in_ch-1, out_ch-1] = cost of a layer with in_ch and out_ch channels
 """
-from __future__ import print_function
 
 import time
 import pickle
@@ -79,10 +78,10 @@ else:
                 file.write(tflite_model)
 
             # Loads TFLite model and get measures
-            command_line = benchmark_loc + " --graph=" + tmp_tflite_file + \
-                           " --min_secs=0 --warmup_min_secs=0 --num_runs=" + str(number_of_measures) + \
-                           " |& tr -d '\n' | awk '{print $NF}'"  # tr removes the \n and awk gets the last element of
-            # the outputs message, |& is used before tr because we want to pipe strderr and not stdout
+            command_line = "{} --graph={} --min_secs=0 --warmup_min_secs=0 --num_runs={} |& tr -d '\n' | awk {}".format(
+                benchmark_loc, tmp_tflite_file, number_of_measures, "'{print $NF}'")  # tr removes the \n and awk gets
+            # the last element of the outputs message, |& is used before tr because we want to pipe strderr and not
+            # stdout
             result = float(subprocess.check_output(command_line, shell=True, executable='/bin/bash')) / 10**6  # result
             # given in microseconds
             return result
@@ -154,7 +153,7 @@ else:
                 return frozen_graph
 
         def get_mesure_tf(model, number_of_measures=args.num_measures, tmp_dir_name=args.tmp_folder,
-                               tmp_file_name='model.pb', benchmark_loc=args.benchmark_tf_loc):
+                          tmp_file_name='model.pb', benchmark_loc=args.benchmark_tf_loc):
             """given a model, saves that model as a .pb file and benchmarks the time needed for a prediction in C++
             using the benchmark tool associated with tf (this tool does not return median but only mean so we will use
             that instead)
@@ -166,11 +165,17 @@ else:
             tf.train.write_graph(frozen_graph, tmp_dir_name, tmp_file_name, as_text=False)
 
             # Loads model and get measures
-            command_line = benchmark_loc + " --graph=" + os.path.join(tmp_dir_name, tmp_file_name) + \
-                           " --min_secs=0 --warmup_min_secs=0 --num_runs=" + str(number_of_measures) + \
-                           " |& tr -d '\n' | awk '{print $NF}'"  # tr removes the \n and awk gets the last element of
-            # the outputs message, |& is used before tr because we want to pipe strderr and not stdout
-            result = float(subprocess.check_output(command_line, shell=True, executable='/bin/bash')) / 10 ** 6
+            in_shape = model.input.shape
+            command_line = "{} --graph={} --input_layer_shape = '1, {}, {}, {}' --input_layer_type='float' " \
+                "--min_secs=0 --warmup_min_secs=0 --num_runs={} |& tr -d '\n' | awk {}".format(
+                    benchmark_loc, os.path.join(tmp_dir_name, tmp_file_name), in_shape[1]._value, in_shape[2]._value,
+                    in_shape[3]._value, number_of_measures, "'{print $NF}'")
+
+            result = subprocess.check_output(command_line, shell=True, executable='/bin/bash')
+            print('-----')
+            print(result)
+            print('-----')
+            result = float(result) / 10 ** 6
             # result given in microseconds
             return result
 
