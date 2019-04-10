@@ -56,8 +56,8 @@ else:
     if args.eval_method == "tf-lite" or args.eval_method == "tf-lite-cpu":
         if not os.path.exists(args.tmp_folder):
             os.makedirs(args.tmp_folder)
-        tmp_keras_file = os.path.join('tmp', 'model.h5')
-        tmp_tflite_file = os.path.join('tmp', 'model.tflite')
+        tmp_keras_file = os.path.join(args.tmp_folder, 'model.h5')
+        tmp_tflite_file = os.path.join(args.tmp_folder, 'model.tflite')
 
 
         def get_measure_tf_lite(model, number_of_measures=args.num_measures, tmp_keras_file=tmp_keras_file,
@@ -210,10 +210,10 @@ if __name__ == '__main__':
 
         for i, (name, width, max_in_channels, max_out_channels, stride) in enumerate([compute_table_on[2]]):
             table_entry = np.zeros((max_in_channels, max_out_channels))
-            print(str(i) + "table out of" + str(len(compute_table_on)) + "done")
+            print(str(i) + " table out of " + str(len(compute_table_on)) + " done")
 
             for in_channels in range(1, max_in_channels + 1):
-                print(str(in_channels) + "input_channels out of" + str(max_in_channels))
+                print(str(in_channels) + " input_channels out of " + str(max_in_channels))
                 for out_channels in range(1, max_out_channels + 1):
                     if args.eval_method == "pytorch":
                         measures = np.zeros(args.num_measures)
