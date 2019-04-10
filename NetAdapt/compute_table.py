@@ -14,6 +14,7 @@ import numpy as np
 import argparse
 import os
 import subprocess
+import gc
 
 parser = argparse.ArgumentParser(description='Computing table')
 parser.add_argument('--save_file', default='saveto', type=str, help='file in which to save the table')
@@ -157,7 +158,10 @@ else:
             """given a model, saves that model as a .pb file and benchmarks the time needed for a prediction in C++
             using the benchmark tool associated with tf (this tool does not return median but only mean so we will use
             that instead)
-            :return: the mean of number_of_measures trials"""
+            :return: the mean of number_of_measures trials
+            As of now, this function does not work with my benchmark binary since the binary wasn't compiled at the
+            same time than the whl pckg I used on the rasberry pi (I couldn't make the cross compilation work) so I got
+            a whl for tf 1.13.1 for rasberry-pi on the internet"""
             model.compile(optimizer=SGD(), loss='binary_crossentropy')
 
             frozen_graph = freeze_session(keras_backend.get_session(),
@@ -166,15 +170,11 @@ else:
 
             # Loads model and get measures
             in_shape = model.input.shape
-            command_line = "{} --graph={} --input_layer_shape = '1, {}, {}, {}' --input_layer_type='float' " \
-                "--min_secs=0 --warmup_min_secs=0 --num_runs={} |& tr -d '\n' | awk {}".format(
-                    benchmark_loc, os.path.join(tmp_dir_name, tmp_file_name), in_shape[1]._value, in_shape[2]._value,
-                    in_shape[3]._value, number_of_measures, "'{print $NF}'")
+            command_line = "{} --graph={} --input_layer_shape='1, {}, {}, {}' --num_runs={} |& tr -d '\n' | awk {}"\
+                .format(benchmark_loc, os.path.join(tmp_dir_name, tmp_file_name), in_shape[1]._value,
+                        in_shape[2]._value, in_shape[3]._value, number_of_measures, "'{print $NF}'")
 
             result = subprocess.check_output(command_line, shell=True, executable='/bin/bash')
-            print('-----')
-            print(result)
-            print('-----')
             result = float(result) / 10 ** 6
             # result given in microseconds
             return result
@@ -191,9 +191,9 @@ else:
                 # Test model on random input data.
                 input_data = np.array(np.random.random_sample((10, width, width, in_channels)), dtype=np.float32)
 
-                begin = time.time()  # time.time() to be compatible with python 2.7
-                model.predict(input_data, batch_size=10)
-                measures[k] = time.time() - begin
+                begin = time.perf_counter()
+                model.predict(input_data, batch_size=1)
+                measures[k] = time.perf_counter() - begin
 
             return np.median(measures)
 
@@ -302,13 +302,14 @@ if __name__ == '__main__':
                         if args.eval_method == "tf-python":
                             table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_python(model)
                         elif args.eval_method == "tf-lite-python":
-                            table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_lite(model)
+                            table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_lite_python(model)
                         elif args.eval_method == "tf-lite":
                             table_entry[in_channels - 1, out_channels - 1] = get_measure_tf_lite(model)
                         elif args.eval_method == "tf":
                             table_entry[in_channels - 1, out_channels - 1] = get_mesure_tf(model)
                         del model
                         keras_backend.clear_session()
+                        gc.collect()
             perf_table[name] = table_entry
 
     else:
