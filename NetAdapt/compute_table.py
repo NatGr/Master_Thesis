@@ -80,7 +80,8 @@ else:
                            " --min_secs=0 --warmup_min_secs=0 --num_runs=" + str(number_of_measures) + \
                            " |& tr -d '\n' | awk '{print $NF}'"  # tr removes the \n and awk gets the last element of
             # the outputs message, |& is used before tr because we want to pipe strderr and not stdout
-            result = int(subprocess.check_output(command_line, shell=True)) / 10**6  # result given in microseconds
+            result = float(subprocess.check_output(command_line, shell=True, executable='/bin/bash')) / 10**6  # result
+            # given in microseconds
             return result
 
 
