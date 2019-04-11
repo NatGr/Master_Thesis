@@ -153,8 +153,8 @@ else:
                     session, input_graph_def, output_names, freeze_var_names)
                 return frozen_graph
 
-        def get_mesure_tf(model, number_of_measures=args.num_measures, tmp_dir_name=args.tmp_folder,
-                          tmp_file_name='model.pb', benchmark_loc=args.benchmark_tf_loc):
+        def get_measure_tf(model, in_width, in_channels, number_of_measures=args.num_measures,
+                           tmp_dir_name=args.tmp_folder, tmp_file_name='model.pb', benchmark_loc=args.benchmark_tf_loc):
             """given a model, saves that model as a .pb file and benchmarks the time needed for a prediction in C++
             using the benchmark tool associated with tf (this tool does not return median but only mean so we will use
             that instead)
@@ -169,10 +169,9 @@ else:
             tf.train.write_graph(frozen_graph, tmp_dir_name, tmp_file_name, as_text=False)
 
             # Loads model and get measures
-            in_shape = model.input.shape
             command_line = "{} --graph={} --input_layer_shape='1, {}, {}, {}' --num_runs={} |& tr -d '\n' | awk {}"\
-                .format(benchmark_loc, os.path.join(tmp_dir_name, tmp_file_name), in_shape[1]._value,
-                        in_shape[2]._value, in_shape[3]._value, number_of_measures, "'{print $NF}'")
+                .format(benchmark_loc, os.path.join(tmp_dir_name, tmp_file_name), in_width,
+                        in_width, in_channels, number_of_measures, "'{print $NF}'")
 
             result = subprocess.check_output(command_line, shell=True, executable='/bin/bash')
             result = float(result) / 10 ** 6
@@ -180,7 +179,7 @@ else:
             return result
 
     elif args.eval_method == 'tf-python':
-        def get_median_measure_tf_python(model, number_of_measures=args.num_measures):
+        def get_median_measure_tf_python(model, in_width, in_channels, number_of_measures=args.num_measures):
             """given a model, get the median measure without using tflite
             :return: the median of number_of_measures trials"""
             measures = np.zeros(number_of_measures)
@@ -189,7 +188,7 @@ else:
 
             for k in range(number_of_measures):
                 # Test model on random input data.
-                input_data = np.array(np.random.random_sample((10, width, width, in_channels)), dtype=np.float32)
+                input_data = np.array(np.random.random_sample((1, in_width, in_width, in_channels)), dtype=np.float32)
 
                 begin = time.perf_counter()
                 model.predict(input_data, batch_size=1)
@@ -300,13 +299,14 @@ if __name__ == '__main__':
                             model = make_conv_model(inputs, out_channels, stride)
 
                         if args.eval_method == "tf-python":
-                            table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_python(model)
+                            table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_python(model, width,
+                                                                                                          in_channels)
                         elif args.eval_method == "tf-lite-python":
                             table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_lite_python(model)
                         elif args.eval_method == "tf-lite":
                             table_entry[in_channels - 1, out_channels - 1] = get_measure_tf_lite(model)
                         elif args.eval_method == "tf":
-                            table_entry[in_channels - 1, out_channels - 1] = get_mesure_tf(model)
+                            table_entry[in_channels - 1, out_channels - 1] = get_measure_tf(model, width, in_channels)
                         del model
                         keras_backend.clear_session()
                         gc.collect()
