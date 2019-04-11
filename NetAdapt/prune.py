@@ -3,11 +3,10 @@
 """
 
 import argparse
-from functools import reduce
 
 from models.wideresnet import *
-from training_fcts import *
-from data_fcts import *
+from utils.training_fcts import *
+from utils.data_fcts import *
 
 parser = argparse.ArgumentParser(description='Pruning')
 parser.add_argument('--workers', default=0, type=int, metavar='N', help='number of data loading workers')

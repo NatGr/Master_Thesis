@@ -7,8 +7,8 @@ import json
 import torch.optim.lr_scheduler as lr_scheduler
 
 from models.wideresnet import *
-from training_fcts import *
-from data_fcts import *
+from utils.training_fcts import *
+from utils.data_fcts import *
 
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N', help='number of data loading workers')
