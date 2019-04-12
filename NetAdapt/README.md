@@ -22,7 +22,7 @@ would prune 40% of the res-40-2 network using res-40-2 (assumed to lay in folder
 
 To build a table, one would need to use
 ```
-python compute_table.py --save_file='res-40-2' 
+python compute_table.py --save_file='res-40-2-tf-lite-2-times' --eval_method='tf-lite-2-times' --mode='load' --output_folder='/media/pi/Elements/models'
 
 ```
 on the targeted device, compute_table uses a res-40-2 by default
