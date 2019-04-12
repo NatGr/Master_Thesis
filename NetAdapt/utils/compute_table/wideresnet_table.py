@@ -116,3 +116,66 @@ def compute_perf_table_wrn(args):
                     gc.collect()
         perf_table[name] = table_entry
     return perf_table
+
+
+def compute_perf_table_wrn_2_times(args):
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''  # forces tf to run on cpu, which is what we want to do here
+    from tensorflow.keras.models import Model
+    from tensorflow.keras import backend as keras_backend
+    from tensorflow.keras.layers import Input
+    from .wideresnet_tf import make_conv_model, make_fc_model
+    from .measure_fcts import save_tflite_file, get_measure_tf_lite_file
+
+    if keras_backend.image_data_format() != 'channels_last':
+        raise ValueError('channels_last data format expected')  # channels_last is said to run faster on cpu
+
+    if not os.path.exists(args.tmp_folder):
+        os.makedirs(args.tmp_folder)
+    if not os.path.exists(args.output_folder):
+        os.makedirs(args.output_folder)
+    tmp_keras_file = os.path.join(args.tmp_folder, 'model.h5')
+
+    perf_table = {}
+    if args.img_size == 32:
+        strides = [1, 1, 2, 2]
+    else:
+        raise ValueError('unsupported input resolution')
+    # same as in wideresnet.py, needs to be copied not to have to use an env. with both pytorch and tf
+    n_channels = [16, int(16 * args.width), int(32 * args.width), int(64 * args.width)]
+    fm_sizes = [args.img_size // stride for stride in strides]
+
+    compute_table_on = [("Conv_0", fm_sizes[0], 3, n_channels[0], strides[0]),
+                        ("FC", fm_sizes[3], n_channels[3], 1, None)]
+    for i in range(1, 4):
+        compute_table_on.append(("Stride_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i - 1]))
+        # used for Skip_i and Conv_i_0_1
+        compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
+        # used for Conv_i_j_1 and Conv_i_0_2
+
+    for i, (name, width, max_in_channels, max_out_channels, stride) in enumerate(compute_table_on):
+        table_entry = np.zeros((max_in_channels, max_out_channels))
+        print("{} tables out of {} done".format(i, len(compute_table_on)))
+
+        for in_channels in range(1, max_in_channels + 1):
+            print("{} input_channels out of {}".format(in_channels, max_in_channels))
+            for out_channels in range(1, max_out_channels + 1):
+                tflite_file = os.path.join(args.output_folder, "{}_{}_{}.tflite".format(i, in_channels, out_channels))
+
+                if args.mode == "save":
+                    inputs = Input(shape=(width, width, in_channels))
+                    if name == "FC":
+                        model = make_fc_model(inputs, args.num_classes, width)
+                    else:
+                        model = make_conv_model(inputs, out_channels, stride)
+
+                    save_tflite_file(model, tmp_keras_file, tflite_file)
+                    del model
+                    keras_backend.clear_session()
+                    gc.collect()
+
+                elif args.mode == "load":
+                    table_entry[in_channels - 1, out_channels - 1] = get_measure_tf_lite_file(
+                        tflite_file, number_of_measures=args.num_measures, benchmark_loc=args.benchmark_lite_loc)
+
+        perf_table[name] = table_entry
+    return perf_table  # returns a useless table when args.mode == "save"

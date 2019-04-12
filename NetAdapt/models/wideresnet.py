@@ -15,6 +15,7 @@ import pickle
 
 class WideResNet(nn.Module):
     """whole WideResNet module without bottlenecks"""
+
     def __init__(self, depth, widen_factor, device, prev_model=None, num_classes=10, drop_rate=0.0):
         """initializes the wrn"""
         super(WideResNet, self).__init__()
@@ -307,7 +308,7 @@ class WideResNet(nn.Module):
             next_layer = layer_name[:9] + "2"
 
             costs_array = self.get_cost(layer_name_table, getattr(self, layer_name).in_channels, None) + \
-                          self.get_cost(layer_name_table, None, getattr(self, next_layer).out_channels)
+                self.get_cost(layer_name_table, None, getattr(self, next_layer).out_channels)
 
         # determines the number of filters
         prev_cost = costs_array[init_nbr_out_channels - 1]

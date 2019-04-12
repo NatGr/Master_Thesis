@@ -28,4 +28,4 @@ python compute_table.py --save_file='res-40-2'
 on the targeted device, compute_table uses a res-40-2 by default
 
 
-Unfortunately, the network objects use in this script are non trivial to implement (see model/wideresnet.py) for example
+Unfortunately, the network objects used in this script are non trivial to implement (see model/wideresnet.py) for example

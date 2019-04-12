@@ -13,7 +13,7 @@ This script is just a proxy for all the ones defined in utils/compute_table
 import pickle
 import argparse
 import os
-from utils.compute_table.wideresnet_table import compute_perf_table_wrn
+from utils.compute_table.wideresnet_table import compute_perf_table_wrn, compute_perf_table_wrn_2_times
 
 parser = argparse.ArgumentParser(description='Computing table')
 parser.add_argument('--save_file', default='saveto', type=str, help='file in which to save the table')
@@ -25,7 +25,8 @@ parser.add_argument('--img_size', default=32, type=int, help='width and height o
 parser.add_argument('--num_classes', default=10, type=int, help='number of classes we are classifying between')
 parser.add_argument('--num_images', default=1, type=int, help='number of images the model makes predictions on at the '
                                                               'same time')
-parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-python', 'tf-lite', 'tf-lite-python'],
+parser.add_argument('--eval_method', choices=['pytorch', 'tf', 'tf-python', 'tf-lite', 'tf-lite-python',
+                                              'tf-lite-2-times'],
                     default='tf-python', help='method used to evaluate the model')
 
 # only used with tf-lite, tf and tf-lite-python
@@ -36,18 +37,27 @@ parser.add_argument('--benchmark_lite_loc', default='/home/pi/tf-lite/benchmark_
 parser.add_argument('--benchmark_tf_loc', default='/home/pi/tensorflow/benchmark_model', type=str,
                     help='path toward the tf-lite benchmark_model binary')
 
-args = parser.parse_args()
+# only used with tf-lite-2-times
+parser.add_argument('--output_folder', default='/dev/shm/models', type=str,
+                    help="path towards the .tflite models, either from where we will load them or from where we will "
+                         "have to write them")
+parser.add_argument('--mode', choices=["load", "save"], type=str, default="load",
+                    help="wether we load the .tflite models to benchmark them or save them to be benchmarked on "
+                         "another device")
 
+args = parser.parse_args()
 
 if __name__ == '__main__':
     # computes the table
 
     if args.net == 'res':
-        perf_table = compute_perf_table_wrn(args)
+        perf_table = compute_perf_table_wrn(args) if args.eval_method != 'tf-lite-2-times' else \
+            compute_perf_table_wrn_2_times(args)
 
     else:
         raise ValueError('pick a valid net')
 
     # file saving
-    with open(os.path.join('perf_tables', str(args.save_file) + '.pickle'), 'wb') as file:
-        pickle.dump(perf_table, file)
+    if args.eval_method != 'tf-lite-2-times' or args.mode != "load":
+        with open(os.path.join('perf_tables', str(args.save_file) + '.pickle'), 'wb') as file:
+            pickle.dump(perf_table, file)
