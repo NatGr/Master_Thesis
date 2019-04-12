@@ -58,6 +58,6 @@ if __name__ == '__main__':
         raise ValueError('pick a valid net')
 
     # file saving
-    if args.eval_method != 'tf-lite-2-times' or args.mode != "load":
+    if args.eval_method != 'tf-lite-2-times' or args.mode != "save":
         with open(os.path.join('perf_tables', str(args.save_file) + '.pickle'), 'wb') as file:
             pickle.dump(perf_table, file)
