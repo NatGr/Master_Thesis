@@ -3,9 +3,9 @@ from tensorflow.keras.layers import BatchNormalization, Conv2D, AveragePooling2D
 from tensorflow.keras.models import Model
 
 
-def make_conv_model(inputs, out_channels, stride):
+def make_conv_model(inputs, out_channels, stride, kernel_size=3):
     """creates a small sequential model composed of a convolution, a batchnorm and a relu activation"""
-    outputs = Conv2D(out_channels, kernel_size=3, strides=stride, padding="same", use_bias=False)(inputs)
+    outputs = Conv2D(out_channels, kernel_size=kernel_size, strides=stride, padding="same", use_bias=False)(inputs)
     outputs = BatchNormalization()(outputs)
     outputs = Activation('relu')(outputs)
     return Model(inputs=inputs, outputs=outputs)

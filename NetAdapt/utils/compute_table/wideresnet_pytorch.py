@@ -4,11 +4,12 @@ import torch
 import torch.nn as nn
 
 
-def make_conv_model(in_channels, out_channels, stride, device):
+def make_conv_model(in_channels, out_channels, stride, device, kernel_size=3):
     """creates a small sequential model composed of a convolution, a batchnorm and a relu activation
     the model is set to eval mode since it is used to measure evaluation time"""
     model = nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
+        nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride,
+                  padding=1 if kernel_size != 1 else 0, bias=False),
         nn.BatchNorm2d(out_channels),
         nn.ReLU(inplace=True)
     )

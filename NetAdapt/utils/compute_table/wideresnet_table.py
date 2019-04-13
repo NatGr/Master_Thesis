@@ -82,7 +82,8 @@ def compute_perf_table_wrn(args):
                     if name == "FC":
                         model = make_fc_model(in_channels, args.num_classes, width, device)
                     else:
-                        model = make_conv_model(in_channels, out_channels, stride, device)
+                        model = make_conv_model(in_channels, out_channels, stride, device, kernel_size=1
+                                                if name[:4] == "Skip" else 3)
                     begin = time.perf_counter()
                     for k in range(args.num_measures):
                         input_tensor = torch.rand(args.num_images, in_channels, width, width, device=device)
@@ -95,7 +96,8 @@ def compute_perf_table_wrn(args):
                     if name == "FC":
                         model = make_fc_model(inputs, args.num_classes, width)
                     else:
-                        model = make_conv_model(inputs, out_channels, stride)
+                        model = make_conv_model(inputs, out_channels, stride, kernel_size=1 if name[:4] == "Skip"
+                                                else 3)
 
                     if args.eval_method == "tf-python":
                         table_entry[in_channels - 1, out_channels - 1] = get_median_measure_tf_python(
@@ -138,7 +140,7 @@ def compute_perf_table_wrn_2_times(args):
         os.makedirs(args.tmp_folder)
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
-    tmp_keras_file = os.path.join(args.tmp_folder, 'model.h5')
+    tmp_keras_file = os.path.join(args.tmp_folder, f'model{args.offset_process}.h5')
 
     perf_table = {}
     if args.img_size == 32:
@@ -185,7 +187,8 @@ def compute_perf_table_wrn_2_times(args):
                     if name == "FC":
                         model = make_fc_model(inputs, args.num_classes, width)
                     else:
-                        model = make_conv_model(inputs, out_channels, stride)
+                        model = make_conv_model(inputs, out_channels, stride, kernel_size=1 if name[:4] == "Skip"
+                                                else 3)
 
                     save_tflite_file(model, tmp_keras_file, tflite_file)
                     del model
