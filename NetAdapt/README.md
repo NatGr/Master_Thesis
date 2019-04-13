@@ -3,7 +3,9 @@
 This code is based on pytorch (version 1.0.1). 
 However, since pytorch does not handle 32bits architectures and that the goal I had in mind when implementing the paper was to do efficient inference on a rasberry-pi, 
 I used tensorflow lite to compute the tables instead (compute_table.py). 
-This means that two environments (one with pytorch and scikit learn and one with tensorflow (or one environment with both) are needed to run the project.
+This means that two environments (one with pytorch and scikit learn and one with tensorflow 1.13.1 (or one environment with both) are needed to run the project.
+The tensorflow environment used on the rasberry-pi comes from [this page](https://github.com/PINTO0309/Tensorflow-bin)
+Initially I cross compiled it myself but I suffered several bugs doing so that the author of the previous repo corrected.
 
 First, the base network needs to be built, 
 ```

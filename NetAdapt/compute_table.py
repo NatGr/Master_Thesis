@@ -38,12 +38,18 @@ parser.add_argument('--benchmark_tf_loc', default='/home/pi/tensorflow/benchmark
                     help='path toward the tf-lite benchmark_model binary')
 
 # only used with tf-lite-2-times
-parser.add_argument('--output_folder', default='/dev/shm/models', type=str,
+parser.add_argument('--output_folder', default='/media/pi/Elements/models', type=str,
                     help="path towards the .tflite models, either from where we will load them or from where we will "
                          "have to write them")
 parser.add_argument('--mode', choices=["load", "save"], type=str, default="load",
                     help="wether we load the .tflite models to benchmark them or save them to be benchmarked on "
                          "another device")
+parser.add_argument('--num_process', default=1, type=int,
+                    help='only used in save mode, if > 1, means there are several processes computing the'
+                         ' same table at the same time and this script thus only has to do a fraction of the work')
+parser.add_argument('--offset_process', default=0, type=int,
+                    help='only used in save mode,if num_process != 0, is used to determine which fraction of the total '
+                         'job this process is doing, must be an int in [0, num_process[')
 
 args = parser.parse_args()
 

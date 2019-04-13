@@ -50,23 +50,28 @@ def compute_perf_table_wrn(args):
     perf_table = {}
     if args.img_size == 32:
         strides = [1, 1, 2, 2]
+        cum_strides = np.cumprod(strides)  # cumulated strides from start
     else:
         raise ValueError('unsupported input resolution')
     # same as in wideresnet.py, needs to be copied not to have to use an env. with both pytorch and tf
     n_channels = [16, int(16 * args.width), int(32 * args.width), int(64 * args.width)]
-    fm_sizes = [args.img_size // stride for stride in strides]
+    fm_sizes = [int(args.img_size // cum_strides[i]) for i in range(cum_strides.shape[0])]
 
     compute_table_on = [("Conv_0", fm_sizes[0], 3, n_channels[0], strides[0]),
                         ("FC", fm_sizes[3], n_channels[3], 1, None)]
     for i in range(1, 4):
-        compute_table_on.append(("Stride_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i - 1]))
-        # used for Skip_i and Conv_i_0_1
+        compute_table_on.append(("Stride_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i]))
+        # used for Conv_i_0_1
         compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
         # used for Conv_i_j_1 and Conv_i_0_2
+
+    for i in range(1, 4):  # Skip_i
+        compute_table_on.append(("Skip_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i]))
 
     for i, (name, width, max_in_channels, max_out_channels, stride) in enumerate(compute_table_on):
         table_entry = np.zeros((max_in_channels, max_out_channels))
         print(str(i) + " table out of " + str(len(compute_table_on)) + " done")
+        print(name, width, max_in_channels, max_out_channels, stride)
 
         for in_channels in range(1, max_in_channels + 1):
             print(str(in_channels) + " input_channels out of " + str(max_in_channels))
@@ -138,27 +143,41 @@ def compute_perf_table_wrn_2_times(args):
     perf_table = {}
     if args.img_size == 32:
         strides = [1, 1, 2, 2]
+        cum_strides = np.cumprod(strides)  # cumulated strides from start
     else:
         raise ValueError('unsupported input resolution')
     # same as in wideresnet.py, needs to be copied not to have to use an env. with both pytorch and tf
     n_channels = [16, int(16 * args.width), int(32 * args.width), int(64 * args.width)]
-    fm_sizes = [args.img_size // stride for stride in strides]
+    fm_sizes = [int(args.img_size // cum_strides[i]) for i in range(cum_strides.shape[0])]
 
     compute_table_on = [("Conv_0", fm_sizes[0], 3, n_channels[0], strides[0]),
                         ("FC", fm_sizes[3], n_channels[3], 1, None)]
     for i in range(1, 4):
-        compute_table_on.append(("Stride_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i - 1]))
-        # used for Skip_i and Conv_i_0_1
+        compute_table_on.append(("Stride_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i]))
+        # used for Conv_i_0_1
         compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
         # used for Conv_i_j_1 and Conv_i_0_2
+
+    for i in range(1, 4):  # Skip_i
+        compute_table_on.append(("Skip_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i]))
 
     for i, (name, width, max_in_channels, max_out_channels, stride) in enumerate(compute_table_on):
         table_entry = np.zeros((max_in_channels, max_out_channels))
         print("{} tables out of {} done".format(i, len(compute_table_on)))
+        print(name, width, max_in_channels, max_out_channels, stride)
 
         for in_channels in range(1, max_in_channels + 1):
             print("{} input_channels out of {}".format(in_channels, max_in_channels))
-            for out_channels in range(1, max_out_channels + 1):
+
+            # determines the fraction of the work we will do in this process if there is several of them
+            if args.num_process > 1 and args.mode == 'save':
+                step = max_out_channels / num_process
+                out_channels_range = range(round(step * args.offset_process) + 1,
+                                           round(step * (args.offset_process + 1)) + 1)
+            else:
+                out_channels_range = range(1, max_out_channels + 1)
+
+            for out_channels in out_channels_range:
                 tflite_file = os.path.join(args.output_folder, "{}_{}_{}.tflite".format(i, in_channels, out_channels))
 
                 if args.mode == "save":

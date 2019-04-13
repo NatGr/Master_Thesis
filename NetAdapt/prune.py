@@ -25,7 +25,11 @@ parser.add_argument('--steps', default=20, type=int, metavar='epochs', help='no.
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
 parser.add_argument('--weight_decay', '--wd', default=0.0005, type=float, metavar='W', help='weight decay')
 parser.add_argument('--short_term_fine_tune', default=100, type=int, help='number of batches ')
-parser.add_argument('--long_term_fine_tune', default=1000, type=int, help='long term fine tune on the whole dataset')
+parser.add_argument('--long_term_fine_tune', default=0, type=int, help='long term fine tune on the whole dataset, '
+                                                                       'set to 0 by default because training from '
+                                                                       'scratch gives better results')
+parser.add_argument('--pruning_method', choices=['fisher', 'weight_l2'], type=str, default='fisher',
+                    help='pruning algo to use')
 parser.add_argument('--width', default=2.0, type=float, metavar='D')
 parser.add_argument('--depth', default=40, type=int, metavar='W')
 
@@ -90,7 +94,8 @@ if __name__ == '__main__':
         for layer in model.to_prune:
             num_channels, gains = model.choose_num_channels(layer, target_gains)
             if num_channels is not None:
-                remaining_channels = model.choose_which_channels(layer, num_channels, args.short_term_fine_tune)
+                remaining_channels = model.choose_which_channels(layer, num_channels, args.short_term_fine_tune,
+                                                                 use_fisher=args.pruning_method == 'fisher')
                 layer_mask_channels_gains.append((layer, remaining_channels, num_channels, gains))
 
         model.reset_fisher()  # cleans run_fish from memory
@@ -141,12 +146,13 @@ if __name__ == '__main__':
         error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
 
     # long term fine tune
-    optimizer = torch.optim.SGD([v for v in model.parameters() if v.requires_grad],
-                                lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
-    finetune(model, optimizer, criterion, args.long_term_fine_tune, full_train_loader, "", device)
-    error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
-    prune_history.append(None)
-    table_costs_history.append(table_costs_history[-1])
+    if args.long_term_fine_tune != 0:
+        optimizer = torch.optim.SGD([v for v in model.parameters() if v.requires_grad],
+                                    lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
+        finetune(model, optimizer, criterion, args.long_term_fine_tune, full_train_loader, "", device)
+        error_history.append(validate(model, val_loader, criterion, device, memory_leak=True))
+        prune_history.append(None)
+        table_costs_history.append(table_costs_history[-1])
 
     # Save
     filename = os.path.join('checkpoints', f'{args.save_file}.t7')

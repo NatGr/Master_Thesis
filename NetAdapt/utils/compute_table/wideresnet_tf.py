@@ -2,6 +2,7 @@
 from tensorflow.keras.layers import BatchNormalization, Conv2D, AveragePooling2D, Dense, Activation, Flatten
 from tensorflow.keras.models import Model
 
+
 def make_conv_model(inputs, out_channels, stride):
     """creates a small sequential model composed of a convolution, a batchnorm and a relu activation"""
     outputs = Conv2D(out_channels, kernel_size=3, strides=stride, padding="same", use_bias=False)(inputs)
