@@ -140,7 +140,7 @@ def compute_perf_table_wrn_2_times(args):
         os.makedirs(args.tmp_folder)
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
-    tmp_keras_file = os.path.join(args.tmp_folder, f'model{args.offset_process}.h5')
+    tmp_keras_file = os.path.join(args.tmp_folder, 'model{}.h5'.format(args.offset_process))
 
     perf_table = {}
     if args.img_size == 32:
