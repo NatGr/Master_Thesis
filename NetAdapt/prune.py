@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
         # prepare next step
         step_number += 1
-        target_gains *= decay_rate
+        target_gains *= args.decay_rate
 
     # long term fine tune
     if args.long_term_fine_tune != 0:
