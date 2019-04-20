@@ -169,6 +169,15 @@ class Pruner:
         return torch.cat([item for item in input])
 
 
+def has_strides(model):
+    """returns, for each masked block, True if it contains strides and False otherwise"""
+    strides = []
+    for m in model.modules():
+        if m._get_name() == 'MaskBlock':
+            strides.append(m.stride == 2)
+    return strides
+
+
 def find(input):
     # Find as in MATLAB to find indices in a binary vector
     return [i for i, j in enumerate(input) if j]

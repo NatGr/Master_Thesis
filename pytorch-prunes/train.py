@@ -15,13 +15,13 @@ parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N', help='number of data loading workers')
 parser.add_argument('--save_file', default='saveto', type=str, help='save file for checkpoints')
 parser.add_argument('--base_file', default='bbb', type=str, help='base file for checkpoints')
-parser.add_argument('--print_freq', '-p', default=10, type=int, metavar='N', help='print frequency (default: 10)')
+parser.add_argument('--print_freq', '-p', default=1000, type=int, metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--data_loc', default='~/Documents/CIFAR-10')
 
 # Learning specific arguments
 parser.add_argument('-b', '--batch_size', default=128, type=int, metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('-lr', '--learning_rate', default=.1, type=float, metavar='LR', help='initial learning rate')
-parser.add_argument('--lr_type', default='multistep', type=str, help='learning rate strategy (default: cosine)',
+parser.add_argument('--lr_type', default='multistep', type=str, help='learning rate strategy (default: multistep)',
                     choices=['cosine', 'multistep'])
 parser.add_argument('-epochs', '--no_epochs', default=200, type=int, metavar='epochs', help='no. epochs')
 parser.add_argument('--epoch_step', default='[60,120,160]', type=str, help='json list with epochs to drop lr on')

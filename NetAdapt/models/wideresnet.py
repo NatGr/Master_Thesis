@@ -117,7 +117,7 @@ class WideResNet(nn.Module):
 
             n_ch_in = getattr(prev_model, skip_name).in_channels
             n_ch_out = getattr(prev_model, skip_name).out_channels
-            setattr(self, skip_name, nn.Conv2d(n_ch_in, n_ch_out, kernel_size=1, stride=stride, padding=1, bias=False))
+            setattr(self, skip_name, nn.Conv2d(n_ch_in, n_ch_out, kernel_size=1, stride=stride, padding=0, bias=False))
             for i in range(self.n_blocks_per_subnet):
                 for j in range(1, 3):
                     conv_name = f"Conv_{sub_net_id}_{i}_{j}"
@@ -211,7 +211,7 @@ class WideResNet(nn.Module):
                     self.total_cost += factor * self.get_cost(layer_name_table, layer.in_channels, layer.out_channels)
                     # initially, the layers of the same type in the same subnetwork have the same number of channels
 
-        print(f"the total cost of the model is: {self.total_cost} according to the perf table")
+        print(f"the total cost of the model is: {self.total_cost :.2f}s according to the perf table")
 
     def get_cost(self, layer_name, in_channel, out_channel):
         """ get the cost of layer layer_name when it has in_channel and out_channel channels, None means we return all
@@ -253,7 +253,7 @@ class WideResNet(nn.Module):
             if layer_name.endswith("_0_2"):
                 subnet = int(layer_name[5])
                 for i in range(1, self.n_blocks_per_subnet):
-                    weights = getattr(self, f"Conv_{subnet}_{i}_2_run_fish").weight.data
+                    weights = getattr(self, f"Conv_{subnet}_{i}_2").weight.data
                     weights_norm += torch.norm(weights.view(weights.size()[0], -1), p=2, dim=1)
                 num_layers = self.n_blocks_per_subnet
             else:
@@ -379,7 +379,7 @@ class WideResNet(nn.Module):
                 if getattr(self, conv_x_j_1, None) is not None:
                     self._remove_from_in_channels(conv_x_j_1, remaining_channels)
 
-        else:  # name ends with conv_2_0_1, we only influence Conv_x_y_2
+        else:  # name == conv_x_y_1, we only influence Conv_x_y_2
             next_layer_name = layer_name[:9] + "2"
             if remaining_channels.size(0) != 0:
                 self._remove_from_out_channels(layer_name, remaining_channels)

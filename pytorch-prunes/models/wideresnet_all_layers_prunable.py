@@ -51,7 +51,7 @@ class WideResNetSubNetwork(nn.Module):
                     # input for the second layer
                     layers.append(nn.BatchNorm2d(in_channels))
                     layers.append(nn.ReLU(inplace=True))
-                    layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False))
+                    layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, padding=0, bias=False))
 
                 # otherwise there is nothing to add to the WRN
             else:

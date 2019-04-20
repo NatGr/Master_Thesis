@@ -27,6 +27,7 @@ parser.add_argument('--lr_type', default='multistep', type=str, help='learning r
 parser.add_argument('-epochs', '--no_epochs', default=200, type=int, metavar='epochs', help='no. epochs')
 parser.add_argument('--epoch_step', default='[60,120,160]', type=str, help='json list with epochs to drop lr on')
 parser.add_argument('--lr_decay_ratio', default=0.2, type=float, help='learning rate decay factor')
+parser.add_argument('--holdout_prop', default=0.1, type=float, help='fraction of training set used for holdout')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
 parser.add_argument('--weight_decay', '--wd', default=0.0005, type=float, metavar='W', help='weight decay')
 parser.add_argument('--net', choices=['res'], default='res')
@@ -56,7 +57,7 @@ model.to(device)
 if args.full_train:
     train_loader, val_loader = get_full_train_val(args.data_loc, args.workers, args.batch_size)
 else:
-    train_loader, _ = get_train_holdout(args.data_loc, args.workers, args.batch_size)
+    train_loader, _ = get_train_holdout(args.data_loc, args.workers, args.batch_size, args.holdout_prop)
     _, val_loader = get_full_train_val(args.data_loc, args.workers, args.batch_size)
 
 

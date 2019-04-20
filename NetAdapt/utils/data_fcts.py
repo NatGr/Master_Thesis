@@ -67,11 +67,12 @@ def get_full_train_val(data_loc, workers, batch_size):
     return full_train_loader, val_loader
 
 
-def get_train_holdout(data_loc, workers, batch_size):
+def get_train_holdout(data_loc, workers, batch_size, holdout_prop):
     """get train and holdout set, to perform pruning as in the NetAdapt paper
     :param data_loc: the location of the cifar dataset on disk
     :param workers: the number of workers the data loaders have to use
     :param batch_size: the batch size to use for training
+    :param holdout_prop: fraction of the total dataset that will end up in holdout set
     :return (train_loader, holdout_loader): the train set and holdout set loaders"""
     tmp = torchvision.datasets.CIFAR10(root=data_loc, train=True, download=True, transform=transforms.ToTensor())
     size = tmp.__len__()
@@ -83,7 +84,7 @@ def get_train_holdout(data_loc, workers, batch_size):
         full_train[i, :, :, :] = img_and_label[0].numpy()
         full_train_labels[i] = img_and_label[1]
 
-    x_train, x_holdout, y_train, y_holdout = train_test_split(full_train, full_train_labels, test_size=0.1,
+    x_train, x_holdout, y_train, y_holdout = train_test_split(full_train, full_train_labels, test_size=holdout_prop,
                                                               stratify=full_train_labels, random_state=17)  # so as to
     # always have the same separation since it's used in several files
 

@@ -16,8 +16,7 @@ would train a base wideresnet-40-2 for example (assuming CIFAR-10 location is in
 
 Then, the network can be pruned, for example
 ```
-python prune.py --save_file='res-40-2-pruned' --pruning_fact=0.4 --base_model='res-40-2'
---perf_table='res-40-2'
+python prune.py --save_file='res-40-2-pruned' --pruning_fact=0.4 --base_model='res-40-2' --perf_table='res-40-2'
 
 ```
 would prune 40% of the res-40-2 network using res-40-2 (assumed to lay in folder perf_tables) as a performance table

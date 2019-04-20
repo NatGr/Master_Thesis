@@ -62,7 +62,7 @@ def compute_perf_table_wrn(args):
     for i in range(1, 4):
         compute_table_on.append(("Stride_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i]))
         # used for Conv_i_0_1
-        compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
+        compute_table_on.append(("No_Stride_" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
         # used for Conv_i_j_1 and Conv_i_0_2
 
     for i in range(1, 4):  # Skip_i
@@ -157,7 +157,7 @@ def compute_perf_table_wrn_2_times(args):
     for i in range(1, 4):
         compute_table_on.append(("Stride_" + str(i), fm_sizes[i - 1], n_channels[i - 1], n_channels[i], strides[i]))
         # used for Conv_i_0_1
-        compute_table_on.append(("No_Stride" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
+        compute_table_on.append(("No_Stride_" + str(i), fm_sizes[i], n_channels[i], n_channels[i], 1))
         # used for Conv_i_j_1 and Conv_i_0_2
 
     for i in range(1, 4):  # Skip_i
