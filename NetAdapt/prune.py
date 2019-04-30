@@ -25,8 +25,8 @@ parser.add_argument('--init_red_fact', default=20, type=int,
                     help='fraction of the initial inference time that will be pruned at the first step, i.e. if network'
                          ' takes .1s to make a prediction, and init_red_fact = 20, the network will have an inference '
                          'time of approximately 19/20 * 0.1s after one pruning step')
-parser.add_argument('--decay_rate', default=1., type=float, help='rate at which the target resource reduction for one '
-                                                                 'step is reduced')
+parser.add_argument('--decay_rate', default=0.98, type=float, help='rate at which the target resource reduction for '
+                                                                   'one step is reduced')
 parser.add_argument('--holdout_prop', default=0.1, type=float, help='fraction of training set used for holdout')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--weight_decay', '--wd', default=0.0005, type=float, help='weight decay')

@@ -81,7 +81,7 @@ class WideResNet(nn.Module):
             setattr(self, running_fisher_name, del_k)  # running average so as to get fisher_pruning on many different
             # data samples
         else:
-            setattr(self, running_fisher_name, running_fisher_prev + del_k)
+            running_fisher_prev += del_k
 
         # This is needed to avoid a memory leak caused by a circular reference between object and object.act_name
         setattr(self, act_name, None)
@@ -234,30 +234,34 @@ class WideResNet(nn.Module):
         :param use_fisher: wether we use fisher pruning or the l2-norm of the weights
         :returns: the id of the channels that survives the pruning"""
         if use_fisher:
-            fisher = getattr(self, layer_name + "_run_fish")
+            fisher = getattr(self, layer_name + "_run_fish").clone().detach()  # clones the tensor and then make it
+            # not requiring a gradient anymore
+            num_layers = 1
+
             if layer_name.endswith("_0_2"):
                 subnet = int(layer_name[5])
                 for i in range(1, self.n_blocks_per_subnet):
                     run_fish = getattr(self, f"Conv_{subnet}_{i}_2_run_fish")
                     if run_fish is not None:  # we might have pruned this layer completely
                         fisher += run_fish
-                num_layers = self.n_blocks_per_subnet
-            else:
-                num_layers = 1
+                        num_layers += 1
 
             tot_loss = fisher.div(no_steps * num_layers)
 
         else:
             weights = getattr(self, layer_name).weight.data  # out_ch * in_ch * height * width
             weights_norm = torch.norm(weights.view(weights.size()[0], -1), p=2, dim=1)
+            num_layers = 1
+
             if layer_name.endswith("_0_2"):
                 subnet = int(layer_name[5])
                 for i in range(1, self.n_blocks_per_subnet):
-                    weights = getattr(self, f"Conv_{subnet}_{i}_2").weight.data
-                    weights_norm += torch.norm(weights.view(weights.size()[0], -1), p=2, dim=1)
-                num_layers = self.n_blocks_per_subnet
-            else:
-                num_layers = 1
+                    subnet_layer = getattr(self, f"Conv_{subnet}_{i}_2")
+                    if subnet_layer is not None:
+                        weights = subnet_layer.weight.data
+                        weights_norm += torch.norm(weights.view(weights.size()[0], -1), p=2, dim=1)
+                        num_layers += 1
+
             tot_loss = weights_norm.div(num_layers)
 
         # get the channels with biggest score
@@ -281,7 +285,10 @@ class WideResNet(nn.Module):
         print(f"{layer_name} has {init_nbr_out_channels} output channels")
 
         if layer_name == "Conv_0":  # when we remove one channel, we will influence Skip_1 and Conv_1_0_1 as well
-            costs_array = self.get_cost(layer_name, 2, None)  # we will always have 3 input channels
+            costs_array = np.copy(self.get_cost(layer_name, 2, None))  # we will always have 3 input channels
+
+            # DO NOT FORGET THE np.copy, its not copy-on-writed like matlab :'( :'(
+
             costs_array += self.get_cost("Skip_1", None, getattr(self, "Skip_1").out_channels)
 
             conv_1_0_1 = getattr(self, "Conv_1_0_1", None)
@@ -292,7 +299,7 @@ class WideResNet(nn.Module):
             subnet = int(layer_name[5])
 
             # Skip_x
-            costs_array = self.get_cost(f"Skip_{subnet}", getattr(self, f"Skip_{subnet}").in_channels, None)
+            costs_array = np.copy(self.get_cost(f"Skip_{subnet}", getattr(self, f"Skip_{subnet}").in_channels, None))
 
             # next_layer
             if subnet != 3:
