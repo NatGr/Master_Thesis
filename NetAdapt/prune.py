@@ -123,7 +123,7 @@ if __name__ == '__main__':
             new_model.load_bigger_state_dict(model.state_dict())  # copy weights and stuff
             new_model.perf_table = model.perf_table
             new_model.total_cost = model.total_cost - new_gains
-            new_model.num_channels_dict = model.num_channels_dict
+            new_model.num_channels_dict = model.num_channels_dict.copy()
             new_model.prune_channels(layer, remaining_channels)
 
             new_model.to(device)

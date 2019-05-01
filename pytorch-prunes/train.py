@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N', help='number of data loading workers')
 parser.add_argument('--save_file', default='saveto', type=str, help='save file for checkpoints')
 parser.add_argument('--base_file', default='bbb', type=str, help='base file for checkpoints')
-parser.add_argument('--print_freq', '-p', default=1000, type=int, metavar='N', help='print frequency (default: 10)')
+parser.add_argument('--print_freq', '-p', default=1000, type=int, metavar='N', help='print frequency (default: 1000)')
 parser.add_argument('--data_loc', default='~/Documents/CIFAR-10')
 
 # Learning specific arguments
