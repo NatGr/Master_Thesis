@@ -25,10 +25,10 @@ shuffle_tf_lite_files() {
 add_results_to_dict() {
     for tf_lite_file in "${tf_lite_files[@]}" ; do
         sleep 10s
-        score=$(/home/pi/tf-lite/benchmark_model --graph=tf_lite_file --num_runs=10 |& tr -d '\n' | awk '{print $NF}')
+        score=$(/home/pi/tf-lite/benchmark_model --graph=${tf_lite_file} --num_runs=50 |& tr -d '\n' | awk '{print $NF}')
         # tr removes the \n and awk gets the last element of the outputs message, |& is used before tr because we want
         # to pipe stderr and not stdout
-
+        echo "${tf_lite_file}: ${score}mus"
        results_dict[${tf_lite_file}]=$(bc -l <<< "${results_dict[${tf_lite_file}]} + ${score}")
     done
 }
@@ -56,6 +56,7 @@ done
 
 # write results
 for tf_lite_file in "${tf_lite_files[@]}" ; do
-   res=$(bc -l <<< "${results_dict[${tf_lite_file}]} / ${num_passes}")  # divide by number of passes
+   res=$(bc -l <<< "scale=4; ${results_dict[${tf_lite_file}]} / ${num_passes} / 1000000")  # divide by number of passes 
+   # and by one million because output given in ms
    echo "${tf_lite_file}: ${res}" >> results.txt
 done
