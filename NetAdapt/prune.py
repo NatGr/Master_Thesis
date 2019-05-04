@@ -1,4 +1,4 @@
-"""Pruning script
+"""NetAdapt Pruning script
 @Author: Nathan Greffe
 """
 
@@ -36,6 +36,8 @@ parser.add_argument('--long_term_fine_tune', default=0, type=int, help='long ter
                                                                        'scratch gives better results')
 parser.add_argument('--pruning_method', choices=['fisher', 'weight_l2'], type=str, default='fisher',
                     help='pruning algo to use')
+parser.add_argument('--allow_small_prunings', action='store_true',
+                    help="allows to prune from a layer even if it doesn't make us achieve the reduction objective")
 parser.add_argument('--width', default=2.0, type=float, metavar='D')
 parser.add_argument('--depth', default=40, type=int, metavar='W')
 
@@ -104,7 +106,7 @@ if __name__ == '__main__':
         # done in two steps to reduce number of memory transfers
         layer_mask_channels_gains = []
         for layer in model.to_prune:
-            num_channels, gains = model.choose_num_channels(layer, target_gains)
+            num_channels, gains = model.choose_num_channels(layer, target_gains, args.allow_small_prunings)
             if num_channels is not None:
                 remaining_channels = model.choose_which_channels(layer, num_channels, args.short_term_fine_tune,
                                                                  use_fisher=args.pruning_method == 'fisher')
@@ -170,6 +172,8 @@ if __name__ == '__main__':
         # prepare next step
         step_number += 1
         target_gains *= args.decay_rate
+
+    print(f"pruned network inference time according to perf_table: {model.total_cost :.2f}")
 
     # long term fine tune
     if args.long_term_fine_tune != 0:

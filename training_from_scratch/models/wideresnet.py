@@ -7,7 +7,7 @@ from tensorflow.keras.models import Model
 def build_wrn(inputs, depth, channels_dict, num_classes=10, drop_rate=0.0):
     """builds a wideresnet model given a channels_dict"""
     assert ((depth - 4) % 6 == 0)  # 4 = the initial conv layer + the 3 conv1*1 when we change the width
-    n = (depth - 4) / 6
+    n = int((depth - 4) / 6)
 
     first_layer_name = "Conv_0"
 
@@ -73,4 +73,4 @@ def wrn_block(x, subnet_id, block_offset, stride, drop_rate, channels_dict):
         skip_name = f"Skip_{subnet_id}"
         x = Conv2D(channels_dict[skip_name], kernel_size=1, padding="same", use_bias=False, strides=stride,
                    name=skip_name)(x_bn_a_1)
-    return Add(out, x)
+    return Add()([out, x])

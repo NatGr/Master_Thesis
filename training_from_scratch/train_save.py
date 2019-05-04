@@ -9,11 +9,11 @@ from math import cos, pi
 from tensorflow import lite
 from albumentations import Compose, PadIfNeeded, RandomCrop, HorizontalFlip
 from tensorflow.keras.datasets import cifar10
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, LearningRateScheduler
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import save_model
-from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard, LearningRateScheduler
 from tensorflow.keras.optimizers import SGD
 from models.wideresnet import build_wrn
 
@@ -28,8 +28,6 @@ parser.add_argument('--tmp_folder', default='/dev/shm/tmp_models', type=str,
                          'tmpfs file system')
 parser.add_argument('--tensorboard', dest='tensorboard', action='store_true',
                     help='registers the validation loss and accuracy on tensorboard')
-parser.set_defaults(tensorboard=False)
-
 
 # Learning specific arguments
 parser.add_argument('--batch_size', default=128, type=int, help='mini-batch size (default: 128)')
@@ -44,7 +42,7 @@ parser.add_argument('--weight_decay', default=0.0005, type=float, help='weight d
 
 # Net specific
 parser.add_argument('--net', choices=['res'], default='res')
-parser.add_argument('--depth', '-d', default=40, type=int, metavar='D', help='depth of network')
+parser.add_argument('--depth', '-d', default=40, type=int, help='depth of network')
 
 args = parser.parse_args()
 
@@ -54,12 +52,14 @@ if not os.path.exists(LOGS_DIR):
     os.makedirs(LOGS_DIR)
 if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
+if not os.path.exists(args.tmp_folder):
+    os.makedirs(args.tmp_folder)
 
 with open(f"{args.channels_pickle}.pickle", 'rb') as file:
     channels_dict = pickle.load(file)
 
 # network
-inputs = Input(32, 32, 3)
+inputs = Input((32, 32, 3))
 if args.net == 'res':
     model = build_wrn(inputs, args.depth, channels_dict)
 else:
@@ -85,8 +85,6 @@ if __name__ == '__main__':
                             HorizontalFlip(p=0.5)])
 
     def real_data_augmentation_library(image, augmentation=augmentation):
-        import pdb
-        pdb.set_trace()
         augmented = augmentation(image=image)
         return augmented['image']
     datagen = ImageDataGenerator(preprocessing_function=real_data_augmentation_library)
@@ -94,7 +92,7 @@ if __name__ == '__main__':
     # training
     model.compile(optimizer=SGD(lr=args.learning_rate, momentum=args.momentum, decay=args.weight_decay),
                   loss='categorical_crossentropy',
-                  metrics=['loss', 'acc'])
+                  metrics=['acc'])
 
     if args.lr_type == 'cosine':
         def step_decay(epoch_index, _, total_num_epochs=args.epochs, init_lr=args.learning_rate):
@@ -113,7 +111,7 @@ if __name__ == '__main__':
 
     callbacks = [LearningRateScheduler(step_decay)]
     if args.tensorboard:
-        callbacks.append(TensorBoard(log_dir=LOGS_DIR, batch_size=args.batch_size, write_graph=True))
+        callbacks.append(TensorBoard(log_dir=LOGS_DIR, batch_size=args.batch_size, write_graph=False))
 
     model.fit_generator(datagen.flow(x_train, y_train, batch_size=args.batch_size),
                         epochs=args.epochs,

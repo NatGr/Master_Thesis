@@ -17,7 +17,6 @@ parser.add_argument('--data_loc', default='~/Documents/CIFAR-10', help='folder c
 parser.add_argument('--full_train', dest='full_train', action='store_true',
                     help='trains with the full dataset (NetAdapt makes more sense if base model is trained with'
                          ' training set only)')
-parser.set_defaults(full_train=False)
 
 # Learning specific arguments
 parser.add_argument('-b', '--batch_size', default=128, type=int, metavar='N', help='mini-batch size (default: 128)')

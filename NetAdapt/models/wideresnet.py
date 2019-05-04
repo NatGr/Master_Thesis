@@ -68,6 +68,44 @@ class WideResNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
+    def prune_one_channel(self, no_steps):
+        """prunes one single channel (or several if there are several layers), this function is built on top of the
+        NetAdapt functions so as to avoid recoding certain things even if that's not performance-wise optimal. The
+        total_cost of the model is updated in this function
+        :param no_steps: the number of steps we make between each pruning
+        :return: the name of the pruned layer"""
+        name_of_best_layer_so_far, smallest_score, channel_offset = None, float("inf"), None,
+        perf_gains_best_layer = None
+        for layer_name in self.to_prune:
+            layer = getattr(self, layer_name, None)
+            if layer is None:
+                continue  # the layer was pruned away
+            init_nbr_out_channels = layer.out_channels
+            cost_array = self._get_cost_array(layer_name)
+            perf_gains = cost_array[init_nbr_out_channels - 1] - cost_array[init_nbr_out_channels - 2]
+
+            pruning_score = self._get_pruning_score(layer_name, no_steps, use_fisher=True)
+
+            # get the channel with smallest score
+            smallest_score_layer, channel_offset_layer = torch.topk(pruning_score, k=1, largest=False, dim=0)
+
+            smallest_score_layer = smallest_score_layer.item() / perf_gains  # take performance gains into account
+            channel_offset_layer = channel_offset_layer.item()
+
+            if smallest_score_layer < smallest_score:
+                name_of_best_layer_so_far = layer_name
+                smallest_score = smallest_score_layer
+                channel_offset = channel_offset_layer
+                perf_gains_best_layer = perf_gains
+
+        self.prune_channels(name_of_best_layer_so_far, torch.cat(
+            (torch.arange(end=channel_offset),
+             torch.arange(start=channel_offset + 1, end=getattr(self, name_of_best_layer_so_far).out_channels)), 0))
+
+        self.total_cost -= perf_gains_best_layer
+
+        return name_of_best_layer_so_far
+
     def _fisher(self, grad_output, act_name, running_fisher_name):
         """callback to compute the importance (on the loss) of a layer, act_name and running_fisher_name are the
          corresponding act and run_fish layer"""
@@ -233,6 +271,21 @@ class WideResNet(nn.Module):
         :param no_steps: the number of steps we make between each pruning
         :param use_fisher: wether we use fisher pruning or the l2-norm of the weights
         :returns: the id of the channels that survives the pruning"""
+        pruning_score = self._get_pruning_score(layer_name, no_steps, use_fisher)
+
+        # get the channels with biggest score
+        _, remaining_channels = torch.topk(pruning_score, k=pruning_score.size(0) - num_channels, largest=True, dim=0)
+
+        remaining_channels, _ = torch.sort(remaining_channels)
+
+        return remaining_channels
+
+    def _get_pruning_score(self, layer_name, no_steps, use_fisher):
+        """get the pruning score (the bigger the less interesting to prune) associated with each channel of the layer
+        :param layer_name: name of the concerned layer
+        :param no_steps: the number of steps we make between each pruning
+        :param use_fisher: wether we use fisher pruning or the l2-norm of the weights
+        :returns: the pruning_score associated with each channel"""
         if use_fisher:
             fisher = getattr(self, layer_name + "_run_fish").clone().detach()  # clones the tensor and then make it
             # not requiring a gradient anymore
@@ -246,7 +299,7 @@ class WideResNet(nn.Module):
                         fisher += run_fish
                         num_layers += 1
 
-            tot_loss = fisher.div(no_steps * num_layers)
+            pruning_score = fisher.div(no_steps * num_layers)
 
         else:
             weights = getattr(self, layer_name).weight.data  # out_ch * in_ch * height * width
@@ -262,21 +315,17 @@ class WideResNet(nn.Module):
                         weights_norm += torch.norm(weights.view(weights.size()[0], -1), p=2, dim=1)
                         num_layers += 1
 
-            tot_loss = weights_norm.div(num_layers)
+            pruning_score = weights_norm.div(num_layers)
 
-        # get the channels with biggest score
-        _, remaining_channels = torch.topk(tot_loss, k=tot_loss.size(0) - num_channels, largest=True, dim=0)
+        return pruning_score
 
-        remaining_channels, _ = torch.sort(remaining_channels)
-
-        return remaining_channels
-
-    def choose_num_channels(self, layer_name, cost_red_obj):
+    def choose_num_channels(self, layer_name, cost_red_obj, allow_small_prunings):
         """chooses how many channels to remove
         :param layer_name: layer at which we remove channels
         :param cost_red_obj: the given cost reduction objective (to attain or approach as much as possible)
-        :returns: the number of channels to prune and achieved cost reduction or None, None if we cannot achieve
-        cost_red_obj"""
+        :param allow_small_prunings: allows to prune layers for which we cannot achieve the reduction objective
+        :returns: the number of channels to prune and achieved cost reduction or None, None if (we cannot achieve
+        cost_red_obj and allow_small_prunings is set to False) or the Layer was pruned away"""
         layer = getattr(self, layer_name, None)
         if layer is None:
             print(f"{layer_name} has been pruned away")
@@ -284,6 +333,27 @@ class WideResNet(nn.Module):
         init_nbr_out_channels = layer.out_channels
         print(f"{layer_name} has {init_nbr_out_channels} output channels")
 
+        costs_array = self._get_cost_array(layer_name)
+
+        # determines the number of filters
+        prev_cost = costs_array[init_nbr_out_channels - 1]
+
+        for rem_channels in range(init_nbr_out_channels - 1, 0, -1):  # could be made O(log(n)) instead
+            cost_diff = prev_cost - costs_array[rem_channels - 1]  # -1 because we are directly accessing a cost_array
+            if cost_diff > cost_red_obj:
+                return init_nbr_out_channels - rem_channels, cost_diff
+
+        if layer_name.startswith("Conv_") and layer_name.endswith("1") and \
+                (prev_cost > cost_red_obj or allow_small_prunings):
+            return init_nbr_out_channels, prev_cost  # prunes out the block
+
+        print(f"{layer_name} cannot be pruned anymore")
+        return None, None
+
+    def _get_cost_array(self, layer_name):
+        """returns the costs array corresponding to the layer named laryer_name, the difference between cost_array[a]
+        and cost_array[b] is the performance gain according to the perf_tables when pruning a-b channels in the layer
+        named laryer_name"""
         if layer_name == "Conv_0":  # when we remove one channel, we will influence Skip_1 and Conv_1_0_1 as well
             costs_array = np.copy(self.get_cost(layer_name, 2, None))  # we will always have 3 input channels
 
@@ -335,19 +405,7 @@ class WideResNet(nn.Module):
             costs_array = self.get_cost(layer_name_table, getattr(self, layer_name).in_channels, None) + \
                 self.get_cost(layer_name_table, None, getattr(self, next_layer).out_channels)
 
-        # determines the number of filters
-        prev_cost = costs_array[init_nbr_out_channels - 1]
-
-        for rem_channels in range(init_nbr_out_channels - 1, 0, -1):  # could be made O(log(n)) instead
-            cost_diff = prev_cost - costs_array[rem_channels - 1]  # -1 because we are directly accessing a cost_array
-            if cost_diff > cost_red_obj:
-                return init_nbr_out_channels - rem_channels, cost_diff
-
-        if layer_name.startswith("Conv_") and layer_name.endswith("1") and prev_cost > cost_red_obj:
-            return init_nbr_out_channels, prev_cost  # prune out the block
-
-        print(f"{layer_name} cannot be pruned anymore")
-        return None, None
+        return costs_array
 
     def prune_channels(self, layer_name, remaining_channels):
         """modifies the structure of self so as to remove the given channels at the given layer
