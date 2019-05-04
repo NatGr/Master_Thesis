@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 from math import cos, pi
 from tensorflow import lite
+import types
 from albumentations import Compose, PadIfNeeded, RandomCrop, HorizontalFlip
 from tensorflow.keras.datasets import cifar10
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -57,6 +58,10 @@ if not os.path.exists(args.tmp_folder):
 
 with open(f"{args.channels_pickle}.pickle", 'rb') as file:
     channels_dict = pickle.load(file)
+    if isinstance(next(iter(channels_dict.values())), tuple):  # in the case of morphnet,
+        # values are (53, 128) instead of 53
+        for key, value in channels_dict.items():
+            channels_dict[key] = value[0]
 
 # network
 inputs = Input((32, 32, 3))

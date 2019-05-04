@@ -34,7 +34,7 @@ parser.add_argument('--short_term_fine_tune', default=100, type=int, help='numbe
 parser.add_argument('--long_term_fine_tune', default=0, type=int, help='long term fine tune on the whole dataset, '
                                                                        'set to 0 by default because training from '
                                                                        'scratch gives better results')
-parser.add_argument('--pruning_method', choices=['fisher', 'weight_l2'], type=str, default='fisher',
+parser.add_argument('--pruning_method', choices=['fisher', 'l2'], type=str, default='fisher',
                     help='pruning algo to use')
 parser.add_argument('--allow_small_prunings', action='store_true',
                     help="allows to prune from a layer even if it doesn't make us achieve the reduction objective")
