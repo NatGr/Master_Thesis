@@ -44,6 +44,8 @@ class WideResNet(nn.Module):
                                       for i in range(self.n_blocks_per_subnet)] + \
                         [f"Conv_{subnet_id}_0_2" for subnet_id in range(1, 4)]
 
+        self.all_layers = self.compute_fisher_on + ["FC"] + [f"Skip_{i}" for i in range(1, 4)]
+
         if prev_model is None:
             self._make_conv_layer("Conv_0", stride=1, n_channels_in=3, n_channels_out=self.n_channels[0])
             self.num_channels_dict["Conv_0"] = self.n_channels[0]
@@ -75,7 +77,6 @@ class WideResNet(nn.Module):
         :param no_steps: the number of steps we make between each pruning
         :return: the name of the pruned layer"""
         name_of_best_layer_so_far, smallest_score, channel_offset = None, float("inf"), None,
-        perf_gains_best_layer = None
         for layer_name in self.to_prune:
             layer = getattr(self, layer_name, None)
             if layer is None:
@@ -97,7 +98,6 @@ class WideResNet(nn.Module):
                 name_of_best_layer_so_far = layer_name
                 smallest_score = smallest_score_layer
                 channel_offset = channel_offset_layer
-                perf_gains_best_layer = perf_gains
 
         self.prune_channels(name_of_best_layer_so_far, torch.cat(
             (torch.arange(end=channel_offset),
@@ -233,28 +233,20 @@ class WideResNet(nn.Module):
     def _compute_total_cost(self):
         """computes the total cost of the network by adding the costs of the channels in the perf_table"""
         self.total_cost = 0
-        for layer_name in self.compute_table_on:
+        for layer_name in self.all_layers:
             if layer_name == "FC":
                 self.total_cost += self.get_cost("FC", self.FC.in_features, 1)
             else:
-                if layer_name.endswith("_0_2"):
-                    factor = self.n_blocks_per_subnet  # number of times a similar conv exists in the network
-                elif layer_name.endswith("_1_1"):
-                    factor = self.n_blocks_per_subnet - 1
-                else:
-                    factor = 1
                 layer = getattr(self, layer_name, None)
                 if layer is not None:
-                    if layer_name.startswith("Skip"):
-                        layer_name_table = f"Skip_{layer_name[5]}"
+                    if layer_name == "Conv_0" or layer_name.startswith("Skip"):
+                        layer_name_table = layer_name
                     elif layer_name.endswith("_0_1"):
                         layer_name_table = f"Stride_{layer_name[5]}"
-                    elif layer_name.endswith("_0_2") or layer_name.endswith("_1_1"):
-                        layer_name_table = f"No_Stride_{layer_name[5]}"
                     else:
-                        layer_name_table = layer_name
+                        layer_name_table = f"No_Stride_{layer_name[5]}"
 
-                    self.total_cost += factor * self.get_cost(layer_name_table, layer.in_channels, layer.out_channels)
+                    self.total_cost += self.get_cost(layer_name_table, layer.in_channels, layer.out_channels)
                     # initially, the layers of the same type in the same subnetwork have the same number of channels
 
     def get_cost(self, layer_name, in_channel, out_channel):
