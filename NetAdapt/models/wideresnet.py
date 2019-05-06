@@ -89,7 +89,8 @@ class WideResNet(nn.Module):
             # get the channel with smallest score
             smallest_score_layer, channel_offset_layer = torch.topk(pruning_score, k=1, largest=False, dim=0)
 
-            smallest_score_layer = smallest_score_layer.item() / perf_gains  # take performance gains into account
+            smallest_score_layer = smallest_score_layer.item() / perf_gains  # take performance gains into account,
+            # perf_gains are usually negative for the first channel of a layer (glitch when computing perf_tables
             channel_offset_layer = channel_offset_layer.item()
 
             if smallest_score_layer < smallest_score:
@@ -102,7 +103,8 @@ class WideResNet(nn.Module):
             (torch.arange(end=channel_offset),
              torch.arange(start=channel_offset + 1, end=getattr(self, name_of_best_layer_so_far).out_channels)), 0))
 
-        self.total_cost -= perf_gains_best_layer
+        self._compute_total_cost()  # must be recomputed instead of iteratively computed because iterative computing
+        # screws up due to perf_table irregularity
 
         return name_of_best_layer_so_far
 
@@ -224,6 +226,12 @@ class WideResNet(nn.Module):
         with open(name, 'rb') as file:
             self.perf_table = pickle.load(file)
 
+        self._compute_total_cost()
+
+        print(f"the total cost of the model is: {self.total_cost :.2f}s according to the perf table")
+
+    def _compute_total_cost(self):
+        """computes the total cost of the network by adding the costs of the channels in the perf_table"""
         self.total_cost = 0
         for layer_name in self.compute_table_on:
             if layer_name == "FC":
@@ -248,8 +256,6 @@ class WideResNet(nn.Module):
 
                     self.total_cost += factor * self.get_cost(layer_name_table, layer.in_channels, layer.out_channels)
                     # initially, the layers of the same type in the same subnetwork have the same number of channels
-
-        print(f"the total cost of the model is: {self.total_cost :.2f}s according to the perf table")
 
     def get_cost(self, layer_name, in_channel, out_channel):
         """ get the cost of layer layer_name when it has in_channel and out_channel channels, None means we return all
@@ -338,7 +344,8 @@ class WideResNet(nn.Module):
         # determines the number of filters
         prev_cost = costs_array[init_nbr_out_channels - 1]
 
-        for rem_channels in range(init_nbr_out_channels - 1, 0, -1):  # could be made O(log(n)) instead
+        for rem_channels in range(init_nbr_out_channels - 1, 0, -1):  # could not be made O(log(n)) instead because cost
+            # table not strictly monotonic
             cost_diff = prev_cost - costs_array[rem_channels - 1]  # -1 because we are directly accessing a cost_array
             if cost_diff > cost_red_obj:
                 return init_nbr_out_channels - rem_channels, cost_diff
@@ -352,8 +359,8 @@ class WideResNet(nn.Module):
 
     def _get_cost_array(self, layer_name):
         """returns the costs array corresponding to the layer named laryer_name, the difference between cost_array[a]
-        and cost_array[b] is the performance gain according to the perf_tables when pruning a-b channels in the layer
-        named laryer_name"""
+        and cost_array[b] is the performance gain according to the perf_tables when pruning from a to b channels in the
+        layer named laryer_name"""
         if layer_name == "Conv_0":  # when we remove one channel, we will influence Skip_1 and Conv_1_0_1 as well
             costs_array = np.copy(self.get_cost(layer_name, 2, None))  # we will always have 3 input channels
 

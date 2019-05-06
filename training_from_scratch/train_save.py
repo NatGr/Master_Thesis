@@ -56,7 +56,7 @@ if not os.path.exists(MODELS_DIR):
 if not os.path.exists(args.tmp_folder):
     os.makedirs(args.tmp_folder)
 
-with open(f"{args.channels_pickle}.pickle", 'rb') as file:
+with open(args.channels_pickle, 'rb') as file:
     channels_dict = pickle.load(file)
     if isinstance(next(iter(channels_dict.values())), tuple):  # in the case of morphnet,
         # values are (53, 128) instead of 53
