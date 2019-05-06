@@ -174,7 +174,7 @@ if __name__ == '__main__':
         step_number += 1
         target_gains *= args.decay_rate
 
-    print(f"pruned network inference time according to perf_table: {model.total_cost :.2f}")
+    print(f"pruned network inference time according to perf_table: {model.total_cost :.4f}")
 
     # long term fine tune
     if args.long_term_fine_tune != 0:
