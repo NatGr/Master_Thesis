@@ -1,17 +1,9 @@
 #!/usr/bin/env bash
 # scrpt to launch several commands at once
 
-_2="_2"
-for file in ../morph_net/pickle/*
-do
-	name=$(echo $file | cut -d'/' -f 4 | cut -d'.' -f 1)
-   	python train.py --workers=2 --net='res' --depth=40 --width=2.0 --save_file="morphnet-$name$_2" --print_freq=950 --save_every=400 --channels_morphnet_file=$file
+
+file_names=('res-40-2-table_fisher-pf=0.8-150ch' 'res-40-2-table_fisher-pf=0.8-300ch' 'res-40-2-table_fisher-pf=0.8-450ch' 'res-40-2-table_fisher-pf=0.8-600ch' 'res-40-2-table_fisher-pf=0.8-750ch' 'res-40-2-table_fisher-pf=0.8-900ch' 'res-40-2-table_fisher-pf=0.8-1100ch')
+
+for file_name in "${file_names[@]}" ; do
+    python train.py --save_file=${file_name} --channels_morphnet_file="../NetAdapt/nbr_channels/${file_name}.pickle" >> out.txt
 done
-
-python train.py --workers=2 --list_channels='res-40-2_fisher_750' --bottle --net='res' --save_file='res-40-2-scratch-fisher-750' --print_freq=950 --save_every=4000
-
-python train.py --workers=2 --list_channels='res-40-2_2_fisher_450' --bottle --net='res' --save_file='res-40-2_2-scratch-fisher-450' --print_freq=950 --save_every=4000
-python train.py --workers=2 --list_channels='res-40-2_2_fisher_600' --bottle --net='res' --save_file='res-40-2_2-scratch-fisher-600' --print_freq=950 --save_every=4000
-python train.py --workers=2 --list_channels='res-40-2_2_fisher_750' --bottle --net='res' --save_file='res-40-2_2-scratch-fisher-750' --print_freq=950 --save_every=4000
-python train.py --workers=2 --list_channels='res-40-2_2_fisher_900' --bottle --net='res' --save_file='res-40-2_2-scratch-fisher-900' --print_freq=950 --save_every=4000
-python train.py --workers=2 --list_channels='res-40-2_2_fisher_1100' --bottle --net='res' --save_file='res-40-2_2-scratch-fisher-1100' --print_freq=950 --save_every=4000

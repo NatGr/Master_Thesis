@@ -93,7 +93,8 @@ if __name__ == '__main__':
     prev_holdout_error = validate(model, holdout_loader, criterion, device, val_set_name="holdout", memory_leak=True)
 
     red_objective = (1 - args.pruning_fact) * model.total_cost
-    target_gains = red_objective / args.init_red_fact  # gains at first epoch to achieve the objective
+    target_gains = args.pruning_fact * model.total_cost / args.init_red_fact  # gains at first epoch to achieve the
+    # objective
     step_number = 1
 
     while model.total_cost > red_objective:
