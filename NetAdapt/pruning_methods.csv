@@ -1,0 +1,15 @@
+method,file,error1,error2,time1,time2
+morphnet,morphnet/morphnet-res-40-2-rs=6e-9-tresh=1e-3.t7,6.05,6.0,0.1195,0.1195
+morphnet,morphnet/morphnet-res-40-2-rs=6e-9-tresh=1e-4.t7,6.63,6.38,0.0914,0.0914
+morphnet,morphnet/morphnet-res-40-2-rs=6e-9-tresh=5e-4.t7,6.16,6.1,0.1086,0.1086
+morphnet,morphnet/morphnet-res-40-2-rs=6e-9-tresh=5e-4_pass2.t7,5.96,5.84,0.1325,0.1325
+morphnet,morphnet/morphnet-res-40-2-rs=8e-8-tresh=1e-3_Group.t7,5.83,5.7,0.1368,0.1368
+morphnet,morphnet/morphnet-res-40-2-rs=5e-8-tresh=1e-3_Group.t7,5.87,5.36,0.1827,0.1827
+morphnet,morphnet/morphnet-res-40-2-rs=8e-9-tresh=1e-3.t7,6.86,6.86,0.0850,0.0850
+morphnet,morphnet/morphnet-res-40-2-rs=8e-9-tresh=1e-3-lr=1e-2.t7,4.91,5.08,0.3172,0.3172
+unpruned,res-40-2.t7,5.14,5.26,.3483,.3483
+fisher,res-40-2-scratch-fisher-450.t7,5.29,5.30,0.2659,0.2621
+fisher,res-40-2-scratch-fisher-600.t7,5.39,5.37,0.2231,0.2249
+fisher,res-40-2-scratch-fisher-750.t7,5.88,5.7,0.1853,0.1839
+fisher,res-40-2-scratch-fisher-900.t7,5.98,5.77,0.1478,0.1443
+fisher,res-40-2-scratch-fisher-1100.t7,6.73,7.10,0.0959,0.0975
