@@ -113,7 +113,7 @@ if __name__ == '__main__':
     print(f"pruned network inference time according to perf_table: {model.total_cost :.2f}")
 
     for layer_name in model.to_prune:
-        layer = getattr(self, layer_name, None)
+        layer = getattr(model, layer_name, None)
         if layer is None:
             print(f"{layer_name} has been pruned away")
         else:
