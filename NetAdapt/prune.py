@@ -31,6 +31,10 @@ parser.add_argument('--holdout_prop', default=0.1, type=float, help='fraction of
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--weight_decay', '--wd', default=0.0005, type=float, help='weight decay')
 parser.add_argument('--short_term_fine_tune', default=100, type=int, help='number of batches ')
+parser.add_argument('--double_fine_tune', action='store_true',
+                    help="fine tunes 2 times between each pruning (one to fine tune and one to compute fisher coefs"
+                         "the one to compute fisher coefs will be 100 batches long and the first one "
+                         "'short_term_fine_tune' batches long)")
 parser.add_argument('--long_term_fine_tune', default=0, type=int, help='long term fine tune on the whole dataset, '
                                                                        'set to 0 by default because training from '
                                                                        'scratch gives better results')
@@ -109,7 +113,9 @@ if __name__ == '__main__':
         for layer in model.to_prune:
             num_channels, gains = model.choose_num_channels(layer, target_gains, args.allow_small_prunings)
             if num_channels is not None:
-                remaining_channels = model.choose_which_channels(layer, num_channels, args.short_term_fine_tune,
+                remaining_channels = model.choose_which_channels(layer, num_channels,
+                                                                 100 if args.double_fine_tune else
+                                                                 args.short_term_fine_tune,
                                                                  use_fisher=args.pruning_method == 'fisher')
                 layer_mask_channels_gains.append((layer, remaining_channels, num_channels, gains))
 
@@ -134,6 +140,8 @@ if __name__ == '__main__':
             optimizer = torch.optim.SGD([v for v in new_model.parameters() if v.requires_grad],
                                         lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
             finetune(new_model, optimizer, criterion, args.short_term_fine_tune, train_loader, layer, device)
+            if args.double_fine_tune:
+                finetune(new_model, optimizer, criterion, 100, train_loader, layer, device)
 
             new_error = validate(new_model, holdout_loader, criterion, device, val_set_name="holdout", memory_leak=True)
 

@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
     while model.total_cost > red_objective:
 
-        print(f"Pruning step number {step_number} -- model cost is {model.total_cost :.2f}s")
+        print(f"Pruning step number {step_number} -- model cost is {model.total_cost :.4f}s")
 
         # Prune
         pruned_layer = model.prune_one_channel(args.short_term_fine_tune)
@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
         step_number += 1
 
-    print(f"pruned network inference time according to perf_table: {model.total_cost :.2f}")
+    print(f"pruned network inference time according to perf_table: {model.total_cost :.4f}")
 
     for layer_name in model.to_prune:
         layer = getattr(model, layer_name, None)
