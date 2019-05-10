@@ -37,7 +37,7 @@ res-40-2-l2_pruned-pf=0.6-dr=0.98-init_red_fact=30-2,6.94,NaN,5.47,0.1412,.1446,
 res-40-2-l2_pruned-pf=0.6-dr=0.98-init_red_fact=30-3,6.92,NaN,6.00,0.1401,.1414,NetAdapt,l2
 res-40-2-fisher_pruned-pf=0.2-dr=0.98-allow_small-ft=700_100,5.79,5.64,5.45,0.2819,TODO,NetAdapt,more_fine_tuning
 res-40-2-fisher_pruned-pf=0.4-dr=0.98-allow_small-ft=700_100,6.08,5.87,5.44,0.2085,TODO,NetAdapt,more_fine_tuning
-res-40-2-fisher_pruned-pf=0.6-dr=0.98-allow_small-ft=700_100,6.67,6.32,5.93,0.1409,TODO,NetAdapt,more_fine_tuning
+res-40-2-fisher_pruned-pf=0.6-dr=0.98-allow_small-init_red_fact=30-ft=700_100,6.67,6.32,5.93,0.1409,TODO,NetAdapt,more_fine_tuning
 res-40-2-table_fisher-pf=0.8-150ch,5.28,NaN,4.97,0.2842,.2856,fisher_table,NaN
 res-40-2-table_fisher-pf=0.8-300ch,5.39,NaN,5.25,0.2431,.2404,fisher_table,NaN
 res-40-2-table_fisher-pf=0.8-450ch,5.29,NaN,5.36,0.2205,.2220,fisher_table,NaN
