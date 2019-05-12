@@ -10,6 +10,7 @@ The techniques investigated were:
     
     
 ### Repository structure:
+	- CondenseNet: clone of https://github.com/ShichenLiu/CondenseNet with some minor modifications to make it run
 	- morph_net: modification of the code of the paper "[MorphNet: Fast & Simple Resource-Constrained Structure Learning of Deep Networks][http://arxiv.org/abs/1711.06798]"
 	- NetAdapt: self-made implementation of the paper "[NetAdapt: Platform-Aware Neural Network Adaptation for Mobile Applications][http://arxiv.org/abs/1804.03230]", several modifications were made (the main ones are: fisher pruning instead of weights-norm pruning and training from scratch rather than long term fine-tuning)
 	- pytorch-prunes: modification of the code of the paper "[Pruning neural networks: is it time to nip it in the bud?][https://arxiv.org/abs/1810.04622]"
