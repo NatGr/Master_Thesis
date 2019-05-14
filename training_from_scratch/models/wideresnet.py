@@ -1,4 +1,4 @@
-"""wideresnet model in tf.keras"""
+"""wideresnet model in tf.keras for 32*32 inputs"""
 from tensorflow.keras.layers import BatchNormalization, Conv2D, AveragePooling2D, Dense, Activation, Flatten, Dropout, \
     Add
 from tensorflow.keras.models import Model

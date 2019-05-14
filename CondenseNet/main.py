@@ -13,6 +13,7 @@ import models
 from utils import convert_model, measure_model
 
 parser = argparse.ArgumentParser(description='PyTorch Condensed Convolutional Networks')
+parser.add_argument('--file_name', help='name of the file to save to')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('--model', default='condensenet', type=str, metavar='M',
@@ -38,8 +39,6 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model (default: false)')
-parser.add_argument('--no-save-model', dest='no_save_model', action='store_true',
-                    help='only save best model (default: false)')
 parser.add_argument('--manual-seed', default=0, type=int, metavar='N',
                     help='manual seed (default: 0)')
 parser.add_argument('--gpu',
@@ -119,9 +118,8 @@ def main():
         IMAGE_SIZE = 224
     n_flops, n_params = measure_model(model, IMAGE_SIZE, IMAGE_SIZE)
     print('FLOPs: %.2fM, Params: %.2fM' % (n_flops / 1e6, n_params / 1e6))
-    args.filename = "%s_%s_%s.txt" % \
-        (args.model, int(n_params), int(n_flops))
     del(model)
+    args.no_save_model = True
     print(args)
 
     ### Create model
@@ -149,17 +147,23 @@ def main():
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
 
-    ### Optionally convert from a model
+    ### Optionally convert from a model and saves it to onnx file
     if args.convert_from is not None:
         args.evaluate = True
         state_dict = torch.load(args.convert_from)['state_dict']
         model.load_state_dict(state_dict)
         model = model.cpu().module
         convert_model(model, args)
-        model = nn.DataParallel(model).cuda()
-        head, tail = os.path.split(args.convert_from)
-        tail = "converted_" + tail
-        torch.save({'state_dict': model.state_dict()}, os.path.join(head, tail))
+        model = model.cuda()
+        # head, tail = os.path.split(args.convert_from)
+        # tail = "converted_" + tail
+        # torch.save({'state_dict': model.state_dict()}, os.path.join(head, tail))
+
+        dummy_input = torch.randn(args.batch_size, 3, IMAGE_SIZE, IMAGE_SIZE, device='cuda')
+        torch.onnx.export(model, dummy_input, args.convert_from + ".onnx", verbose=True)
+
+        return
+
 
     ### Optionally evaluate from a model
     if args.evaluate_from is not None:
@@ -243,18 +247,17 @@ def main():
         ### Evaluate on validation set
         val_prec1, val_prec5 = validate(val_loader, model, criterion)
 
-        ### Remember best prec@1 and save checkpoint
+        ### Remember best prec@1
         is_best = val_prec1 < best_prec1
         best_prec1 = max(val_prec1, best_prec1)
-        model_filename = 'checkpoint_%03d.pth.tar' % epoch
-        save_checkpoint({
-            'epoch': epoch,
-            'model': args.model,
-            'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
-            'optimizer': optimizer.state_dict(),
-        }, args, is_best, model_filename, "%.4f %.4f %.4f %.4f %.4f %.4f\n" %
-            (val_prec1, val_prec5, tr_prec1, tr_prec5, loss, lr))
+
+    save_checkpoint({
+        'epoch': epoch,
+        'model': args.model,
+        'state_dict': model.state_dict(),
+        'best_prec1': best_prec1,
+        'optimizer': optimizer.state_dict(),
+    }, args, is_best, args.file_name)
 
     ### Convert model and test
     model = model.cpu().module
@@ -397,25 +400,17 @@ def load_checkpoint(args):
     return state
 
 
-def save_checkpoint(state, args, is_best, filename, result):
+def save_checkpoint(state, args, is_best, filename):
     print(args)
-    result_filename = os.path.join(args.savedir, args.filename)
     model_dir = os.path.join(args.savedir, 'save_models')
     model_filename = os.path.join(model_dir, filename)
     latest_filename = os.path.join(model_dir, 'latest.txt')
-    best_filename = os.path.join(model_dir, 'model_best.pth.tar')
     os.makedirs(args.savedir, exist_ok=True)
     os.makedirs(model_dir, exist_ok=True)
     print("=> saving checkpoint '{}'".format(model_filename))
-    with open(result_filename, 'a') as fout:
-        fout.write(result)
     torch.save(state, model_filename)
     with open(latest_filename, 'w') as fout:
         fout.write(model_filename)
-    if args.no_save_model:
-        shutil.move(model_filename, best_filename)
-    elif is_best:
-        shutil.copyfile(model_filename, best_filename)
 
     print("=> saved checkpoint '{}'".format(model_filename))
     return
