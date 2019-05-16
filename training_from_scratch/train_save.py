@@ -134,12 +134,16 @@ if __name__ == '__main__':
     if args.lr_type == 'adam':
         optimizer = Adam(lr=args.learning_rate, beta_1=0.75)
         callbacks = []
-    elif args.lr_type == 'rmsprop':
-        optimizer = RMSprop(lr=args.learning_rate, decay=args.lr_decay_ratio)
-        callbacks = []
     else:
 
-        if args.lr_type == 'cosine':
+        if args.lr_type == 'rmsprop':
+            def step_decay(_, current_lr, decay_factor=args.lr_decay_ratio):
+                """multiplies the current leraning rate by decay_factor at each epoch"""
+                return current_lr * decay_factor
+
+            optimizer = RMSprop(lr=args.learning_rate, decay=args.lr_decay_ratio)
+
+        elif args.lr_type == 'cosine':
             def step_decay(epoch_index, _, total_num_epochs=args.epochs, init_lr=args.learning_rate):
                 """takes an epoch index as input (integer, indexed from 0) and current learning
                 rate and returns a new learning rate as output (float)."""

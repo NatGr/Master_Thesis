@@ -5,7 +5,7 @@ from tensorflow.keras.models import Model
 import numpy as np
 
 
-def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(2, 2, 2), num_classes=10,
+def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
                       channels_per_subnet=(16, 32, 64, 128), expansion_factor=4):
     """builds a mobilenetv1 model given a number of blocks per subnetwork, like for the imagenet version, we will still
     have an expansion factor of 1 for the first layer and we will have a smooth progression into the number of channels
@@ -15,13 +15,13 @@ def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(2, 2, 2), num_clas
     # like for WRN, only applies stride on first block of subnets 2 and 3:
     strides = [1, 2, 2]
     for i in range(3):
-        num_channels = np.linspace(channels_per_subnet[i], channels_per_subnet[i] + channels_per_subnet[i+1],
-                                   blocks_per_subnet+1).astype(np.int)
+        num_channels = np.linspace(channels_per_subnet[i], channels_per_subnet[i+1],
+                                   blocks_per_subnet[i]+1).astype(np.int)
         x = mobilenetv2_block(x, num_channels[0], num_channels[1],
-                              1 if i == 0 else expansion_factor, strides[i])
+                              1 if i == 0 else expansion_factor, regularizer, strides[i])
 
         for j in range(1, blocks_per_subnet[i]):
-            x = mobilenetv2_block(x, num_channels[j], num_channels[j+1], expansion_factor, regularizer=regularizer)
+            x = mobilenetv2_block(x, num_channels[j], num_channels[j+1], expansion_factor, regularizer)
 
     x = AveragePooling2D(pool_size=8)(x)
     x = Flatten()(x)
@@ -44,7 +44,7 @@ def mobilenetv2_block(x_in, ch_in, ch_out, expansion_factor, regularizer, stride
     x = depthwise_conv_2d_with_bn_relu(strides, regularizer=regularizer)(x)
     x = BatchNormalization(beta_regularizer=regularizer, gamma_regularizer=regularizer)(
         Conv2D(ch_out, kernel_size=1, strides=1, padding="same", use_bias=False, kernel_regularizer=regularizer)(x))
-    return x if strides == 2 else Add()([x, x_in])
+    return x if strides == 2 or ch_in != ch_out else Add()([x, x_in])
 
 
 def conv_2d_with_bn_relu(ch_out, kernel_size, regularizer):
