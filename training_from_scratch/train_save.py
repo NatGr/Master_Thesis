@@ -33,6 +33,8 @@ parser.add_argument('--tmp_folder', default='/dev/shm/tmp_models', type=str,
 parser.add_argument('--train_val_set', action='store_true',
                     help='uses 10% of training set as validation set to tune hyperparameters; setting this argument'
                          'overrides "no_tf_lite_conversion" to True and adds "_val" on the file name')
+parser.add_argument('--get_tf_lite', action='store_true',
+                    help='gets a tf_lite_model corresponding to what was trained')
 
 # Learning specific arguments
 parser.add_argument('--batch_size', default=128, type=int, help='mini-batch size (default: 128)')
@@ -176,7 +178,7 @@ if __name__ == '__main__':
                         workers=args.workers,
                         callbacks=callbacks)
 
-    if not args.train_val_set:
+    if args.get_tf_lite:
         # save it to tf_lite
         tmp_keras_file = os.path.join(args.tmp_folder, f"{args.save_file}.h5")
         tflite_file = os.path.join(MODELS_DIR, f"{args.save_file}.tflite")
