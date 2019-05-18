@@ -30,9 +30,8 @@ from LRTensorBoard import LRTensorBoard
 parser = argparse.ArgumentParser(description='Training and saving in tf_lite')
 parser.add_argument('--workers', default=1, type=int, help='number of data loading workers')
 parser.add_argument('--save_file', default='saveto', type=str, help='name to use for this file')
-parser.add_argument('--tmp_folder', default='/dev/shm/tmp_models', type=str,
-                    help='folder in which to create the tmp files (for tf-lite conversion), by default, uses linux '
-                         'tmpfs file system')
+parser.add_argument('--tmp_folder', default='tmp_models', type=str,
+                    help='folder in which to create the tmp files (for tf-lite conversion)')
 parser.add_argument('--train_val_set', action='store_true',
                     help='uses 10% of training set as validation set to tune hyperparameters; setting this argument'
                          'overrides "no_tf_lite_conversion" to True and adds "_val" on the file name')
