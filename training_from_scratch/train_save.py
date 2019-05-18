@@ -21,6 +21,9 @@ from models.effnet import build_effnet
 from models.squeezenext import build_squeezenext
 from models.mobilenetv1 import build_mobilenetv1
 from models.mobilenetv2 import build_mobilenetv2
+from models.shufflenetv1 import build_shufflenetv1
+from models.shufflenetv2 import build_shufflenetv2
+from models.nasnet import build_nasnet
 from sklearn.model_selection import train_test_split
 from LRTensorBoard import LRTensorBoard
 
@@ -48,11 +51,16 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='mo
 parser.add_argument('--weight_decay', default=0.0005, type=float, help='weight decay')
 
 # Net specific
-parser.add_argument('--net', choices=['resnet', 'effnet', 'squeezenext', 'mobilenetv1', 'mobilenetv2'], default='res')
+parser.add_argument('--net', choices=['resnet', 'effnet', 'squeezenext', 'mobilenetv1', 'mobilenetv2', 'shufflenetv1',
+                                      'shufflenetv2', 'nasnet'], default='res')
 parser.add_argument('--depth', '-d', default=40, type=int, help='depth of network')
 parser.add_argument('--channels_pickle', type=str, help='name of the pickle file containing the number of channels for '
                                                         'each layers, only used with res')
 parser.add_argument('--expansion_rate', default=2, type=int, help='effnet/mobilenetv2 expansion rate')
+parser.add_argument('--num_groups', default=3, type=int, help='number of groups for shufflenetv1')
+parser.add_argument('--width', default=32, type=int, help='width of the first subnetwork, width are multiplied by 2 at '
+                                                          'each application of stride, this argument is ignored for '
+                                                          'WRN')
 
 args = parser.parse_args()
 print(args)
@@ -75,6 +83,7 @@ elif args.net != 'res':
     raise ValueError('Net must have a depth divisible by 3')
 
 regularizer = l2(args.weight_decay)
+channels_per_subnet = [args.width, args.width * 2, args.width * 4]
 
 if args.net == 'resnet':
     with open(args.channels_pickle, 'rb') as file:
@@ -87,18 +96,31 @@ if args.net == 'resnet':
     model = build_wrn(inputs, args.depth, channels_dict, regularizer=regularizer)
 
 elif args.net == 'effnet':
+    channels_per_subnet.append(channels_per_subnet[-1] * 2)  # channels per subnet a bit different than for other
+    # networks
     model = build_effnet(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
-                         expansion_rate=args.expansion_rate)
+                         expansion_rate=args.expansion_rate, channels_per_subnet=channels_per_subnet)
 
 elif args.net == 'squeezenext':
-    model = build_squeezenext(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet)
+    model = build_squeezenext(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
+                              channels_per_subnet=channels_per_subnet)
 
 elif args.net == 'mobilenetv1':
-    model = build_mobilenetv1(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet)
+    model = build_mobilenetv1(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
+                              channels_per_subnet=channels_per_subnet)
 
 elif args.net == 'mobilenetv2':
     model = build_mobilenetv2(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
-                              expansion_factor=args.expansion_rate)
+                              channels_per_subnet=channels_per_subnet, expansion_factor=args.expansion_rate)
+elif args.net == 'shufflenetv1':
+    model = build_shufflenetv1(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
+                               channels_per_subnet=channels_per_subnet, num_groups=args.num_groups)
+elif args.net == 'shufflenetv2':
+    model = build_shufflenetv2(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
+                               channels_per_subnet=channels_per_subnet)
+elif args.net == 'nasnet':
+    model = build_nasnet(inputs, regularizer, blocks_per_subnet=blocks_per_subnet,
+                         channels_per_subnet=channels_per_subnet)
 
 else:
     raise ValueError('pick a valid net')

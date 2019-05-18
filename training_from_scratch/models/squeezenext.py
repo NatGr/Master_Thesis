@@ -1,6 +1,7 @@
 """squeezenext model in tf.keras for 32*32 inputs"""
-from tensorflow.keras.layers import ReLU, BatchNormalization, Conv2D, Add, AveragePooling2D, Flatten, Dense
+from tensorflow.keras.layers import Add, AveragePooling2D, Flatten, Dense
 from tensorflow.keras.models import Model
+from .commons import conv_2d_with_bn_relu
 
 
 def build_squeezenext(inputs, regularizer, blocks_per_subnet=(1, 1, 1), num_classes=10,
@@ -55,11 +56,4 @@ def squeezenext_block(x_in, ch_out, conv_3_1_first, regularizer, strides=1, skip
     x = conv_2d_with_bn_relu(ch_out, kernel_size=1, regularizer=regularizer)(x)
 
     return Add()([x, x_skip])
-
-
-def conv_2d_with_bn_relu(ch_out, kernel_size, regularizer, strides=1):
-    """laryer that encapsulated a conv2D followed by a batchnorm and a RELU"""
-    return lambda x: ReLU()(BatchNormalization(beta_regularizer=regularizer, gamma_regularizer=regularizer)(
-        Conv2D(ch_out, kernel_size=kernel_size, strides=strides, padding="same", use_bias=False,
-               kernel_regularizer=regularizer)(x)))
 

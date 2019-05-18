@@ -1,10 +1,11 @@
 """mobilenetv1 model in tf.keras for 32*32 inputs"""
-from tensorflow.keras.layers import ReLU, BatchNormalization, Conv2D, AveragePooling2D, Flatten, Dense, \
-    DepthwiseConv2D
+from tensorflow.keras.layers import AveragePooling2D, Flatten, Dense
 from tensorflow.keras.models import Model
+from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu
 
 
-def build_mobilenetv1(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10, channels_per_subnet=(32, 64, 128)):
+def build_mobilenetv1(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
+                      channels_per_subnet=(32, 64, 128)):
     """builds a mobilenetv1 model given a number of blocks per subnetwork"""
     x = conv_2d_with_bn_relu(16, kernel_size=3, regularizer=regularizer)(inputs)
 
@@ -33,18 +34,4 @@ def mobilenetv1_block(x_in, ch_out, regularizer, strides=1):
     :return: the output of the block"""
     x = depthwise_conv_2d_with_bn_relu(strides, regularizer)(x_in)
     return conv_2d_with_bn_relu(ch_out, 1, regularizer)(x)
-
-
-def conv_2d_with_bn_relu(ch_out, kernel_size, regularizer):
-    """laryer that encapsulated a conv2D followed by a batchnorm and a RELU"""
-    return lambda x: ReLU()(BatchNormalization(beta_regularizer=regularizer, gamma_regularizer=regularizer)(
-        Conv2D(ch_out, kernel_size=kernel_size, strides=1, padding="same", use_bias=False,
-               kernel_regularizer=regularizer)(x)))
-
-
-def depthwise_conv_2d_with_bn_relu(strides, regularizer):
-    """laryer that encapsulated a conv2D followed by a batchnorm and a RELU"""
-    return lambda x: ReLU()(BatchNormalization(beta_regularizer=regularizer, gamma_regularizer=regularizer)(
-        DepthwiseConv2D(kernel_size=3, strides=strides, padding="same", use_bias=False,
-                        kernel_regularizer=regularizer)(x)))
 
