@@ -41,13 +41,13 @@ parser.add_argument('--get_tf_lite', action='store_true',
 # Learning specific arguments
 parser.add_argument('--batch_size', default=128, type=int, help='mini-batch size (default: 128)')
 parser.add_argument('--learning_rate', default=.1, type=float, help='initial learning rate')
-parser.add_argument('--lr_type', default='multistep', type=str, help='learning rate strategy (default: multistep)',
+parser.add_argument('--lr_type', default='cosine', type=str, help='learning rate strategy (default: multistep)',
                     choices=['cosine', 'multistep', 'adam', 'rmsprop'])
 parser.add_argument('--epochs', default=200, type=int, help='no. epochs')
 parser.add_argument('--epoch_step', default='[60,120,160]', type=str, help='json list with epochs to drop lr on')
 parser.add_argument('--lr_decay_ratio', default=0.2, type=float, help='learning rate decay factor')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
-parser.add_argument('--weight_decay', default=0.0005, type=float, help='weight decay')
+parser.add_argument('--weight_decay', default=0.0001, type=float, help='weight decay')
 
 # Net specific
 parser.add_argument('--net', choices=['resnet', 'effnet', 'squeezenext', 'mobilenetv1', 'mobilenetv2', 'shufflenetv1',
