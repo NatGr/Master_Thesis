@@ -84,6 +84,10 @@ elif args.net != 'res':
 regularizer = l2(args.weight_decay)
 channels_per_subnet = [args.width, args.width * 2, args.width * 4]
 
+if args.net == 'effnet' or args.net == 'mobilenetv2':
+    channels_per_subnet.append(channels_per_subnet[-1] * 2)  # channels per subnet a bit different than for other
+    # networks
+
 if args.net == 'resnet':
     with open(args.channels_pickle, 'rb') as file:
         channels_dict = pickle.load(file)
@@ -95,8 +99,6 @@ if args.net == 'resnet':
     model = build_wrn(inputs, args.depth, channels_dict, regularizer=regularizer)
 
 elif args.net == 'effnet':
-    channels_per_subnet.append(channels_per_subnet[-1] * 2)  # channels per subnet a bit different than for other
-    # networks
     model = build_effnet(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
                          expansion_rate=args.expansion_rate, channels_per_subnet=channels_per_subnet)
 

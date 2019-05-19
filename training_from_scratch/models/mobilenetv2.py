@@ -7,7 +7,7 @@ from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu
 
 def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
                       channels_per_subnet=(16, 32, 64, 128), expansion_factor=4):
-    """builds a mobilenetv1 model given a number of blocks per subnetwork, like for the imagenet version, we will still
+    """builds a mobilenetv2 model given a number of blocks per subnetwork, like for the imagenet version, we will still
     have an expansion factor of 1 for the first layer and we will have a smooth progression into the number of channels
     per block"""
     x = conv_2d_with_bn_relu(16, kernel_size=3, regularizer=regularizer, relu_max_value=6)(inputs)
