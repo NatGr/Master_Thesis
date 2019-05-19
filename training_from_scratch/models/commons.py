@@ -65,13 +65,16 @@ def grouped_1_1_convolution_with_bn(x, ch_out, num_groups, regularizer, use_relu
 def channel_shuffle(x, num_groups):
     """
     shuffles a channel
-    code taken from https://github.com/scheckmedia/keras-shufflenet/blob/master/shufflenet.py
+    code adapted from https://github.com/scheckmedia/keras-shufflenet/blob/master/shufflenet.py
     """
     height, width, in_channels = x.shape.as_list()[1:]
     channels_per_group = in_channels // num_groups
 
-    x = keras_backend.reshape(x, [-1, height, width, num_groups, channels_per_group])
-    x = keras_backend.permute_dimensions(x, (0, 1, 2, 4, 3))  # transpose
+    assert in_channels % num_groups == 0
+
+    x = keras_backend.reshape(x, [-1, height*width, num_groups, channels_per_group])  # we reshape to a 4D tensor since
+    # tf_lite does not support transposition with more than 4 dimensions
+    x = keras_backend.permute_dimensions(x, (0, 1, 3, 2))  # transpose
     x = keras_backend.reshape(x, [-1, height, width, in_channels])
 
     return x

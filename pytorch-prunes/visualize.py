@@ -140,11 +140,15 @@ def plot_channels_left(files, model, nbr_prunings, save_name=None):
     ax[0].set_ylabel('number of channels left')
     ax[0].set_xticks(x_ticks)
     ax[0].bar(x=offset_layer, height=nbr_channels_left_mean, yerr=nbr_channels_left_err, color=colors)
+    ax[0].grid(True, axis='y')
+    ax[0].set_axisbelow(True)
     ax[1].set_title('Proportion of middle channels for each block')
     ax[1].set_xlabel('block offset')
     ax[1].set_ylabel('proportion of channels left')
     ax[1].set_xticks(x_ticks)
     ax[1].bar(x=offset_layer, height=prop_channels_left_mean, yerr=prop_channels_left_err, color=colors)
+    ax[1].grid(True, axis='y')
+    ax[1].set_axisbelow(True)
     plt.tight_layout()  # so as to avoid overlaps
     if save_name is not None:
         plt.savefig(f"{save_name}.pdf")
@@ -183,16 +187,16 @@ if __name__ == "__main__":
     # plot_channels_left(["res-40-2-l1_1299_prunes"], WideResNet(40, 2, mask=1), 1000)
     # resnet-fisher-pruning
     # plot_channels_left(["res-40-2-fischer_1299_prunes", "res-40-2_2_fisher_1299_prunes"],
-    #                    WideResNet(40, 2, mask=1), 750,
-    #                    save_name='plots/plots_WRN_num_channels_error_bars/WRN_FISHER_750')
+    #                    WideResNet(40, 2, mask=1), 1000,
+    #                    save_name='plots/plots_WRN_num_channels_error_bars/WRN_FISHER_1000')
     # resnet-fisher-prune-scratch-prune
     # plot_channels_left(["res-40-2-retrain-1299-pruned", "res-40-2_2_retrain_1300"],
-    #                    WideResNet(40, 2, mask=1), 750,
-    #                    save_name='plots/plots_WRN_num_channels_error_bars/WRN_FISHER_PRUNE_SCRATCH_750')
+    #                    WideResNet(40, 2, mask=1), 1000,
+    #                    save_name='plots/plots_WRN_num_channels_error_bars/WRN_FISHER_PRUNE_SCRATCH_1000')
     # densenet-fisher-pruning
     # plot_channels_left(["densenet/dense-100-fisher-2600_2000_prunes", "densenet/dense-100_2-fisher-2300_2299_prunes"],
-    #                    DenseNet(12, 100, 0.5, 10, True, mask=1), 1500,
-    #                    save_name='plots/plots_WRN_num_channels_error_bars/dense_fisher_1500')
+    #                    DenseNet(12, 100, 0.5, 10, True, mask=1), 2000,
+    #                    save_name='plots/plots_WRN_num_channels_error_bars/dense_fisher_2000')
 
     # fisher vs random pruning
     # pruning_dict = {"random pruning": ["res-40-2-random_1299_prunes"],
