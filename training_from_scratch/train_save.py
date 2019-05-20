@@ -24,6 +24,7 @@ from models.mobilenetv2 import build_mobilenetv2
 from models.shufflenetv1 import build_shufflenetv1
 from models.shufflenetv2 import build_shufflenetv2
 from models.nasnet import build_nasnet
+from models.mnasnet import build_mnasnet
 from sklearn.model_selection import train_test_split
 from LRTensorBoard import LRTensorBoard
 
@@ -51,7 +52,7 @@ parser.add_argument('--weight_decay', default=0.0001, type=float, help='weight d
 
 # Net specific
 parser.add_argument('--net', choices=['resnet', 'effnet', 'squeezenext', 'mobilenetv1', 'mobilenetv2', 'shufflenetv1',
-                                      'shufflenetv2', 'nasnet'], default='res')
+                                      'shufflenetv2', 'nasnet', 'mnasnet'])
 parser.add_argument('--depth', '-d', default=40, type=int, help='depth of network')
 parser.add_argument('--channels_pickle', type=str, help='name of the pickle file containing the number of channels for '
                                                         'each layers, only used with res')
@@ -60,6 +61,9 @@ parser.add_argument('--num_groups', default=3, type=int, help='number of groups 
 parser.add_argument('--width', default=32, type=int, help='width of the first subnetwork, width are multiplied by 2 at '
                                                           'each application of stride, this argument is ignored for '
                                                           'WRN')
+parser.add_argument('--use_dropout', action='store_true',
+                    help='whether to use a dropout of .2 before the final classification layer, '
+                         'only affects mobilenetv2')
 
 args = parser.parse_args()
 print(args)
@@ -84,7 +88,7 @@ elif args.net != 'res':
 regularizer = l2(args.weight_decay)
 channels_per_subnet = [args.width, args.width * 2, args.width * 4]
 
-if args.net == 'effnet' or args.net == 'mobilenetv2':
+if args.net in ['effnet', 'mobilenetv2', 'mnasnet']:
     channels_per_subnet.append(channels_per_subnet[-1] * 2)  # channels per subnet a bit different than for other
     # networks
 
@@ -112,7 +116,8 @@ elif args.net == 'mobilenetv1':
 
 elif args.net == 'mobilenetv2':
     model = build_mobilenetv2(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
-                              channels_per_subnet=channels_per_subnet, expansion_factor=args.expansion_rate)
+                              channels_per_subnet=channels_per_subnet, expansion_factor=args.expansion_rate,
+                              use_dropout=args.use_dropout)
 elif args.net == 'shufflenetv1':
     model = build_shufflenetv1(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
                                channels_per_subnet=channels_per_subnet, num_groups=args.num_groups)
@@ -122,6 +127,9 @@ elif args.net == 'shufflenetv2':
 elif args.net == 'nasnet':
     model = build_nasnet(inputs, regularizer, blocks_per_subnet=blocks_per_subnet,
                          channels_per_subnet=channels_per_subnet)
+elif args.net == 'mnasnet':
+    model = build_mnasnet(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
+                          channels_per_subnet=channels_per_subnet, expansion_factor=args.expansion_rate)
 
 else:
     raise ValueError('pick a valid net')

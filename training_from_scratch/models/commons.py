@@ -12,11 +12,11 @@ def conv_2d_with_bn_relu(ch_out, kernel_size, regularizer, strides=1, relu_max_v
                    kernel_regularizer=regularizer)(x)))
 
 
-def depthwise_conv_2d_with_bn_relu(strides, regularizer, relu_max_value=None):
+def depthwise_conv_2d_with_bn_relu(strides, regularizer, relu_max_value=None, kernel_size=3):
     """layer that encapsulates a depthwise conv2D followed by a batchnorm and a RELU"""
     return lambda x: ReLU(max_value=relu_max_value)(
         BatchNormalization(beta_regularizer=regularizer, gamma_regularizer=regularizer)(
-            DepthwiseConv2D(kernel_size=3, strides=strides, padding="same", use_bias=False,
+            DepthwiseConv2D(kernel_size=kernel_size, strides=strides, padding="same", use_bias=False,
                             kernel_regularizer=regularizer)(x)))
 
 
