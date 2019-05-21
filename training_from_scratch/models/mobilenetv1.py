@@ -5,17 +5,19 @@ from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu
 
 
 def build_mobilenetv1(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
-                      channels_per_subnet=(32, 64, 128)):
+                      channels_per_subnet=(32, 64, 128), use_5_5_filters=False):
     """builds a mobilenetv1 model given a number of blocks per subnetwork"""
     x = conv_2d_with_bn_relu(16, kernel_size=3, regularizer=regularizer)(inputs)
 
     # like for WRN, only applies stride on first block of subnets 2 and 3:
     strides = [1, 2, 2]
     for i in range(3):
-        x = mobilenetv1_block(x, channels_per_subnet[i], regularizer, strides[i])
+        depthwise_kernel_size = [3] * blocks_per_subnet[i] if i == 0 or not use_5_5_filters \
+            else ([5] * (blocks_per_subnet[i] - 1) + [3])
+        x = mobilenetv1_block(x, channels_per_subnet[i], regularizer, strides[i], kern_size=depthwise_kernel_size[0])
 
-        for _ in range(blocks_per_subnet[i] - 1):
-            x = mobilenetv1_block(x, channels_per_subnet[i], regularizer)
+        for j in range(1, blocks_per_subnet[i]):
+            x = mobilenetv1_block(x, channels_per_subnet[i], regularizer, kern_size=depthwise_kernel_size[j])
 
     x = AveragePooling2D(pool_size=8)(x)
     x = Flatten()(x)
@@ -25,13 +27,14 @@ def build_mobilenetv1(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_clas
     return Model(inputs=inputs, outputs=outputs)
 
 
-def mobilenetv1_block(x_in, ch_out, regularizer, strides=1):
+def mobilenetv1_block(x_in, ch_out, regularizer, strides=1, kern_size=3):
     """builds a mobilenetv1 block
     :param x_in: input of the block
     :param ch_out: number of output channels
     :param strides: the stride to apply in the first layer
     :param regularizer: the weight regularizer
+    :param kern_size: the size of the Dwise convolution kernel
     :return: the output of the block"""
-    x = depthwise_conv_2d_with_bn_relu(strides, regularizer)(x_in)
+    x = depthwise_conv_2d_with_bn_relu(strides, regularizer, kernel_size=kern_size)(x_in)
     return conv_2d_with_bn_relu(ch_out, 1, regularizer)(x)
 

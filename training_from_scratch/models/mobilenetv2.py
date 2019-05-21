@@ -2,7 +2,7 @@
 from tensorflow.keras.layers import AveragePooling2D, Flatten, Dense, Add, BatchNormalization, Conv2D, Dropout
 from tensorflow.keras.models import Model
 import numpy as np
-from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu
+from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu, se_block
 
 
 def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
@@ -33,7 +33,7 @@ def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_clas
     return Model(inputs=inputs, outputs=outputs)
 
 
-def mobilenetv2_block(x_in, ch_in, ch_out, expansion_factor, regularizer, strides=1, mid_conv_size=3):
+def mobilenetv2_block(x_in, ch_in, ch_out, expansion_factor, regularizer, strides=1, mid_conv_size=3, se_factor=0):
     """builds a mobilenetv1 block
     :param x_in: input of the block
     :param ch_in: number of input channels
@@ -42,6 +42,8 @@ def mobilenetv2_block(x_in, ch_in, ch_out, expansion_factor, regularizer, stride
     :param regularizer: the weight regularizer
     :param strides: the stride to apply in the first layer
     :param mid_conv_size: the size of the kernel of the depthwise separable convolution layer in the middle of the block
+    :param se_factor: the reduction factor to apply to the se block
+    (no se block created if se_factor == 0 or strides != 1)
     :return: the output of the block"""
     x = conv_2d_with_bn_relu(ch_out=expansion_factor*ch_in, kernel_size=1, regularizer=regularizer,
                              relu_max_value=6)(x_in)
@@ -50,5 +52,8 @@ def mobilenetv2_block(x_in, ch_in, ch_out, expansion_factor, regularizer, stride
 
     x = BatchNormalization(beta_regularizer=regularizer, gamma_regularizer=regularizer)(
         Conv2D(ch_out, kernel_size=1, strides=1, padding="same", use_bias=False, kernel_regularizer=regularizer)(x))
+
+    if se_factor != 0 and strides == 1:
+        x = se_block(x, ch_out, se_factor, regularizer)
 
     return x if strides == 2 or ch_in != ch_out else Add()([x, x_in])

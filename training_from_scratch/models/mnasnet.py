@@ -1,13 +1,13 @@
-"""mobilenetv2 model in tf.keras for 32*32 inputs"""
+"""mnasnet model in tf.keras for 32*32 inputs"""
 from tensorflow.keras.layers import AveragePooling2D, Flatten, Dense, Add, BatchNormalization, Conv2D
 from tensorflow.keras.models import Model
 import numpy as np
-from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu
+from .commons import conv_2d_with_bn_relu
 from .mobilenetv2 import mobilenetv2_block
 
 
 def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
-                  channels_per_subnet=(16, 32, 64, 128), expansion_factor=4):
+                  channels_per_subnet=(16, 32, 64, 128), expansion_factor=4, se_factor=0):
     """builds a mnasnet network for cifar-10, we hypothesizes that the first block of mnasnet was as is it only because
     of input feature map resolution, thus this is basically a mobilenetv2 with 5*5 convolutions in the middle. We also
     use expansion_factor/2 in the first subnetwork"""
@@ -21,11 +21,11 @@ def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=
                                    blocks_per_subnet[i]+1).astype(np.int)
         x = mobilenetv2_block(x, num_channels[0], num_channels[1],
                               expansion_factor // 2 if i == 0 else expansion_factor, regularizer, strides[i],
-                              depthwise_kernel_size[0])
+                              depthwise_kernel_size[0], se_factor=se_factor)
 
         for j in range(1, blocks_per_subnet[i]):
             x = mobilenetv2_block(x, num_channels[j], num_channels[j+1], expansion_factor, regularizer,
-                                  mid_conv_size=depthwise_kernel_size[j])
+                                  mid_conv_size=depthwise_kernel_size[j], se_factor=se_factor)
 
     x = AveragePooling2D(pool_size=8)(x)
     x = Flatten()(x)

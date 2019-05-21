@@ -1,6 +1,6 @@
 """file containing functions used by several networks"""
 from tensorflow.keras.layers import ReLU, BatchNormalization, Conv2D, AveragePooling2D, Flatten, Dense, \
-    DepthwiseConv2D, Lambda, Concatenate
+    DepthwiseConv2D, Lambda, Concatenate, Reshape, Multiply
 from tensorflow.keras import backend as keras_backend
 
 
@@ -78,3 +78,18 @@ def channel_shuffle(x, num_groups):
     x = keras_backend.reshape(x, [-1, height, width, in_channels])
 
     return x
+
+
+def se_block(x, ch_x, se_factor, regularizer):
+    """Squeeze and Exitation block, inspired from
+    https://github.com/yungshun317/keras-cifar-10-senet/blob/master/senet.py
+    :param x: input tensor
+    :param ch_x: number of channels of x
+    :param se_factor: reduction factor of the output number of channels of the first dense layer of the SE block
+    :param regularizer: the regularizer to apply
+    :return: the SE block's output"""
+    se = AveragePooling2D(pool_size=x.shape.as_list()[1])(x)
+    se = Reshape((1, 1, ch_x))(se)
+    se = Dense(ch_x // se_factor, activation='relu', kernel_regularizer=regularizer, use_bias=False)(se)
+    se = Dense(ch_x, activation='sigmoid', kernel_regularizer=regularizer, use_bias=False)(se)
+    return Multiply()([x, se])
