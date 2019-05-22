@@ -63,7 +63,7 @@ parser.add_argument('--width', default=32, type=int, help='width of the first su
                                                           'WRN')
 parser.add_argument('--use_dropout', action='store_true',
                     help='whether to use a dropout of .2 before the final classification layer, '
-                         'only affects mobilenetv2 and mnasnet')
+                         'only affects the mobilenets, shufflenetv2 and mnasnet')
 parser.add_argument('--use_5_5_filters', action='store_true',
                     help='whether to use 5*5 filters in the later subnetworks or only 3*3, '
                          'only affects mobilenetv1')
@@ -121,7 +121,7 @@ elif args.net == 'squeezenext':
 elif args.net == 'mobilenetv1':
     model = build_mobilenetv1(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
                               channels_per_subnet=channels_per_subnet, use_5_5_filters=args.use_5_5_filters,
-                              se_factor=args.se_factor, add_skip=args.add_skip)
+                              se_factor=args.se_factor, add_skip=args.add_skip, use_dropout=args.use_dropout)
 
 elif args.net == 'mobilenetv2':
     model = build_mobilenetv2(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
@@ -133,7 +133,7 @@ elif args.net == 'shufflenetv1':
 elif args.net == 'shufflenetv2':
     model = build_shufflenetv2(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
                                channels_per_subnet=channels_per_subnet, se_factor=args.se_factor,
-                               add_skip=args.add_skip)
+                               add_skip=args.add_skip, use_dropout=args.use_dropout)
 elif args.net == 'nasnet':
     model = build_nasnet(inputs, regularizer, blocks_per_subnet=blocks_per_subnet,
                          channels_per_subnet=channels_per_subnet)

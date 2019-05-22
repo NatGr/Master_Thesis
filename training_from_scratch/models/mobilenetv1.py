@@ -1,11 +1,12 @@
 """mobilenetv1 model in tf.keras for 32*32 inputs"""
-from tensorflow.keras.layers import AveragePooling2D, Flatten, Dense, Add
+from tensorflow.keras.layers import AveragePooling2D, Flatten, Dense, Add, Dropout
 from tensorflow.keras.models import Model
 from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu, se_block
 
 
 def build_mobilenetv1(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
-                      channels_per_subnet=(32, 64, 128), use_5_5_filters=False, se_factor=0, add_skip=False):
+                      channels_per_subnet=(32, 64, 128), use_5_5_filters=False, use_dropout=False,
+                      se_factor=0, add_skip=False):
     """builds a mobilenetv1 model given a number of blocks per subnetwork"""
     x = conv_2d_with_bn_relu(16, kernel_size=3, regularizer=regularizer)(inputs)
 
@@ -23,6 +24,8 @@ def build_mobilenetv1(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_clas
 
     x = AveragePooling2D(pool_size=8)(x)
     x = Flatten()(x)
+    if use_dropout:
+        x = Dropout(rate=.2)(x)
     outputs = Dense(units=num_classes, activation='softmax', kernel_regularizer=regularizer,
                     bias_regularizer=regularizer)(x)
 
