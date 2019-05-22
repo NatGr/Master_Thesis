@@ -1,5 +1,5 @@
 """mnasnet model in tf.keras for 32*32 inputs"""
-from tensorflow.keras.layers import AveragePooling2D, Flatten, Dense, Add, BatchNormalization, Conv2D
+from tensorflow.keras.layers import AveragePooling2D, Flatten, Dense, Add, BatchNormalization, Conv2D, Dropout
 from tensorflow.keras.models import Model
 import numpy as np
 from .commons import conv_2d_with_bn_relu
@@ -7,7 +7,7 @@ from .mobilenetv2 import mobilenetv2_block
 
 
 def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
-                  channels_per_subnet=(16, 32, 64, 128), expansion_factor=4, se_factor=0):
+                  channels_per_subnet=(16, 32, 64, 128), expansion_factor=4, use_dropout=False, se_factor=0):
     """builds a mnasnet network for cifar-10, we hypothesizes that the first block of mnasnet was as is it only because
     of input feature map resolution, thus this is basically a mobilenetv2 with 5*5 convolutions in the middle. We also
     use expansion_factor/2 in the first subnetwork"""
@@ -29,6 +29,8 @@ def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=
 
     x = AveragePooling2D(pool_size=8)(x)
     x = Flatten()(x)
+    if use_dropout:
+        x = Dropout(rate=.2)(x)
     outputs = Dense(units=num_classes, activation='softmax', kernel_regularizer=regularizer,
                     bias_regularizer=regularizer)(x)
 
