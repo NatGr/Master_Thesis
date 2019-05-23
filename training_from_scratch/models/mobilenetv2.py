@@ -6,7 +6,7 @@ from .commons import conv_2d_with_bn_relu, depthwise_conv_2d_with_bn_relu, se_bl
 
 
 def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
-                      channels_per_subnet=(16, 32, 64, 128), expansion_factor=4, use_dropout=False, se_factor=0):
+                      channels_per_subnet=(32, 64, 128), expansion_factor=4, use_dropout=False, se_factor=0):
     """builds a mobilenetv2 model given a number of blocks per subnetwork, like for the imagenet version, we will still
     have an expansion factor of 1 for the first layer and we will have a smooth progression into the number of channels
     per block"""
@@ -15,13 +15,11 @@ def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_clas
     # like for WRN, only applies stride on first block of subnets 2 and 3:
     strides = [1, 2, 2]
     for i in range(3):
-        num_channels = np.linspace(channels_per_subnet[i], channels_per_subnet[i+1],
-                                   blocks_per_subnet[i]+1).astype(np.int)
-        x = mobilenetv2_block(x, num_channels[0], num_channels[1],
+        x = mobilenetv2_block(x, x.shape.as_list()[3], channels_per_subnet[i],
                               1 if i == 0 else expansion_factor, regularizer, strides[i], se_factor=se_factor)
 
-        for j in range(1, blocks_per_subnet[i]):
-            x = mobilenetv2_block(x, num_channels[j], num_channels[j+1], expansion_factor, regularizer,
+        for _ in range(1, blocks_per_subnet[i]):
+            x = mobilenetv2_block(x, x.shape.as_list()[3], channels_per_subnet[i], expansion_factor, regularizer,
                                   se_factor=se_factor)
 
     x = AveragePooling2D(pool_size=8)(x)

@@ -85,8 +85,8 @@ shufflenetv2_d18_w80_se2_skip_cosine,shufflenetv2,18,80,2,.9376,.1038
 shufflenetv2_d21_w80_se2_skip_cosine,shufflenetv2,21,80,2,.9324,.1198
 mobilenetv1_d18_w100_skip_cosine,mobilenetv1,18,100,NaN,.9442,.1978
 mobilenetv1_d15_w100_skip_cosine,mobilenetv1,15,100,NaN,.9352,.1577
-shufflenetv2_d21_w80_dropout,shufflenetv2,21,80,NaN,,
-shufflenetv2_d21_w80_se2_dropout,shufflenetv2,21,80,2,,
-mobilenetv1_d18_w100_dropout,mobilenetv1,18,100,NaN,,
-mobilenetv1_d15_w100_se2_dropout,mobilenetv1,15,100,2,,
-mobilenetv1_d15_w100_dropout,mobilenetv1,15,100,NaN,,
+shufflenetv2_d21_w80_dropout,shufflenetv2,21,80,NaN,.94,.1037
+shufflenetv2_d21_w80_se2_dropout,shufflenetv2,21,80,2,.9462,.1167
+mobilenetv1_d18_w100_dropout,mobilenetv1,18,100,NaN,.9472,.1854
+mobilenetv1_d15_w100_se2_dropout,mobilenetv1,15,100,2,.9492,.1680
+mobilenetv1_d15_w100_dropout,mobilenetv1,15,100,NaN,.9436,.1479
