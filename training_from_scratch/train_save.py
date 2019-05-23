@@ -96,7 +96,7 @@ elif args.net != 'res':
 regularizer = l2(args.weight_decay)
 channels_per_subnet = [args.width, args.width * 2, args.width * 4]
 
-if args.net in ['effnet', 'mnasnet']:
+if args.net == 'effnet':
     channels_per_subnet.append(channels_per_subnet[-1] * 2)  # channels per subnet a bit different than for other
     # networks
 

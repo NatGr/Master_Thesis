@@ -21,7 +21,7 @@ def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=
                               expansion_factor // 2 if i == 0 else expansion_factor, regularizer, strides[i],
                               depthwise_kernel_size[0], se_factor=se_factor)
 
-        for _ in range(1, blocks_per_subnet[i]):
+        for j in range(1, blocks_per_subnet[i]):
             x = mobilenetv2_block(x, x.shape.as_list()[3], channels_per_subnet[i], expansion_factor, regularizer,
                                   mid_conv_size=depthwise_kernel_size[j], se_factor=se_factor)
 
