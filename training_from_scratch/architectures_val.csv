@@ -90,3 +90,9 @@ shufflenetv2_d21_w80_se2_dropout,shufflenetv2,21,80,2,.9462,.1167
 mobilenetv1_d18_w100_dropout,mobilenetv1,18,100,NaN,.9472,.1854
 mobilenetv1_d15_w100_se2_dropout,mobilenetv1,15,100,2,.9492,.1680
 mobilenetv1_d15_w100_dropout,mobilenetv1,15,100,NaN,.9436,.1479
+mobilenetv2_modif_d12_er4_w24_dropout,mobilenetv2,12,24,4,.9402,.0716
+mobilenetv2_modif_d12_er4_w32_dropout,mobilenetv2,12,32,4,.9418,.1199
+mobilenetv2_modif_d12_er4_w48_dropout,mobilenetv2,12,48,4,.947,.2382
+mobilenetv2_modif_d15_er4_w24_dropout,mobilenetv2,15,24,4,.9438,.0918
+mobilenetv2_modif_d15_er4_w32_dropout,mobilenetv2,15,32,4,.9478,.1545
+mobilenetv2_modif_d15_er4_w48_dropout,mobilenetv2,15,48,4,.9494,.3058

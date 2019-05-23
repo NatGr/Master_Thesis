@@ -21,4 +21,4 @@ mobilenetv1_d12_w64_se2_cosine,mobilenetv1,12,64,2,.9404,.9393,.9401,.0630
 mobilenetv1_d15_w100_se2_cosine,mobilenetv1,15,80,2,.9489,.9475,.9472,.1749
 mnasnet_d12_er4_w32_dropout,mnasnet,12,4,32,.9444,.9445,.9421,.2765
 shufflenetv2_d12_w64_se2_cosine,shufflenetv2,12,64,2,.929,.9278,.9298,.0505
-shufflenetv2_d18_w80_se2_cosine,shufflenetv2,18,80,2,,,,
+shufflenetv2_d18_w80_se2_cosine,shufflenetv2,18,80,2,.9373,.9374,.9375,.1017

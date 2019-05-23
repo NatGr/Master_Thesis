@@ -7,7 +7,7 @@ from .mobilenetv2 import mobilenetv2_block
 
 
 def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=10,
-                  channels_per_subnet=(16, 32, 64, 128), expansion_factor=4, use_dropout=False, se_factor=0):
+                  channels_per_subnet=(32, 64, 128), expansion_factor=4, use_dropout=False, se_factor=0):
     """builds a mnasnet network for cifar-10, we hypothesizes that the first block of mnasnet was as is it only because
     of input feature map resolution, thus this is basically a mobilenetv2 with 5*5 convolutions in the middle. We also
     use expansion_factor/2 in the first subnetwork"""
@@ -17,14 +17,12 @@ def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=
     strides = [1, 2, 2]
     for i in range(3):
         depthwise_kernel_size = [3] * blocks_per_subnet[i] if i == 0 else ([5] * (blocks_per_subnet[i] - 1) + [3])
-        num_channels = np.linspace(channels_per_subnet[i], channels_per_subnet[i+1],
-                                   blocks_per_subnet[i]+1).astype(np.int)
-        x = mobilenetv2_block(x, num_channels[0], num_channels[1],
+        x = mobilenetv2_block(x, x.shape.as_list()[3], channels_per_subnet[i],
                               expansion_factor // 2 if i == 0 else expansion_factor, regularizer, strides[i],
                               depthwise_kernel_size[0], se_factor=se_factor)
 
-        for j in range(1, blocks_per_subnet[i]):
-            x = mobilenetv2_block(x, num_channels[j], num_channels[j+1], expansion_factor, regularizer,
+        for _ in range(1, blocks_per_subnet[i]):
+            x = mobilenetv2_block(x, x.shape.as_list()[3], channels_per_subnet[i], expansion_factor, regularizer,
                                   mid_conv_size=depthwise_kernel_size[j], se_factor=se_factor)
 
     x = AveragePooling2D(pool_size=8)(x)
