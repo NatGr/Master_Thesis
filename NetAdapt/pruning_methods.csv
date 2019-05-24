@@ -1,4 +1,4 @@
-file_name,no_fine_tune,fine_tune,retrain_scratch,table_time,measured_time,method,group
+file_name,no_fine_tune,fine_tune,retrain_scratch,table_time,measured_time,method,criterion
 res-40-2-l2_pruned-pf=0.4-dr=0.98,6.58,5.89,5.37,0.2099,.2077,NetAdapt,l2
 res-40-2-l2_pruned-pf=0.4-dr=0.98-2,6.11,6.02,5.56,0.2105,.2077,NetAdapt,l2
 res-40-2-l2_pruned-pf=0.4-dr=0.98-3,6.10,5.91,5.33,0.2108,.2101,NetAdapt,l2

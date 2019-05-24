@@ -103,7 +103,7 @@ def plot_channels_left(files, model, nbr_prunings, save_name=None):
     :param save_name: if not None, saves the plot into a file named save_name
     """
     nbr_channels_left = []
-    prop_channels_left = []
+    init_nbr_channels = None
     for file in files:
         model_tmp = deepcopy(model)  # because we cannot modify 2 times the same model in different passes
         state = torch.load(os.path.join('checkpoints', f'{file}.t7'))
@@ -114,7 +114,8 @@ def plot_channels_left(files, model, nbr_prunings, save_name=None):
             pruner.fixed_prune(model_tmp, channel, verbose=False)
         layers = pruner.compress(model_tmp)
         nbr_channels_left.append([i for i, _ in layers])
-        prop_channels_left.append([i/j for i, j in layers])
+        if init_nbr_channels is None:
+            init_nbr_channels = [j for _, j in layers]
 
     strided = has_strides(model_tmp)
     colors = ['C3' if block_strided else 'C0' for block_strided in strided]
@@ -125,31 +126,18 @@ def plot_channels_left(files, model, nbr_prunings, save_name=None):
     nbr_channels_left_err = [nbr_channels_left_mean - np.min(nbr_channels_left, 0),
                              np.max(nbr_channels_left, 0) - nbr_channels_left_mean]
 
-    prop_channels_left = np.array(prop_channels_left)
-    prop_channels_left_mean = np.mean(prop_channels_left, 0)
-    prop_channels_left_err = [prop_channels_left_mean - np.min(prop_channels_left, 0),
-                              np.max(prop_channels_left, 0) - prop_channels_left_mean]
-
     offset_layer = [i for i in range(1, nbr_channels_left.shape[1] + 1)]
     x_ticks = [i for i in range(1, nbr_channels_left.shape[1] + 1, 2)]
 
     # plot
-    fig, ax = plt.subplots(2, 1)
-    ax[0].set_title('Number of middle channels left for each block')
-    ax[0].set_xlabel('block offset')
-    ax[0].set_ylabel('number of channels left')
-    ax[0].set_xticks(x_ticks)
-    ax[0].bar(x=offset_layer, height=nbr_channels_left_mean, yerr=nbr_channels_left_err, color=colors)
-    ax[0].grid(True, axis='y')
-    ax[0].set_axisbelow(True)
-    ax[1].set_title('Proportion of middle channels for each block')
-    ax[1].set_xlabel('block offset')
-    ax[1].set_ylabel('proportion of channels left')
-    ax[1].set_xticks(x_ticks)
-    ax[1].bar(x=offset_layer, height=prop_channels_left_mean, yerr=prop_channels_left_err, color=colors)
-    ax[1].grid(True, axis='y')
-    ax[1].set_axisbelow(True)
-    plt.tight_layout()  # so as to avoid overlaps
+    fig, ax = plt.subplots(1, 1, figsize=(9, 4))
+    ax.set_xlabel('block offset', fontsize=15)
+    ax.set_ylabel('number of channels left', fontsize=15)
+    ax.set_xticks(x_ticks)
+    ax.bar(x=offset_layer, height=init_nbr_channels, color='w', edgecolor='k', alpha=0.5)
+    ax.bar(x=offset_layer, height=nbr_channels_left_mean, yerr=nbr_channels_left_err, color=colors)
+    ax.grid(True, axis='y')
+    ax.set_axisbelow(True)
     if save_name is not None:
         plt.savefig(f"{save_name}.pdf")
     plt.show()
@@ -191,12 +179,12 @@ if __name__ == "__main__":
     #                    save_name='plots/plots_WRN_num_channels_error_bars/WRN_FISHER_1000')
     # resnet-fisher-prune-scratch-prune
     # plot_channels_left(["res-40-2-retrain-1299-pruned", "res-40-2_2_retrain_1300"],
-    #                    WideResNet(40, 2, mask=1), 1000,
-    #                    save_name='plots/plots_WRN_num_channels_error_bars/WRN_FISHER_PRUNE_SCRATCH_1000')
+    #                    WideResNet(40, 2, mask=1), 750,
+    #                    save_name='plots/plots_WRN_num_channels_error_bars/WRN_FISHER_PRUNE_SCRATCH_750')
     # densenet-fisher-pruning
-    # plot_channels_left(["densenet/dense-100-fisher-2600_2000_prunes", "densenet/dense-100_2-fisher-2300_2299_prunes"],
-    #                    DenseNet(12, 100, 0.5, 10, True, mask=1), 2000,
-    #                    save_name='plots/plots_WRN_num_channels_error_bars/dense_fisher_2000')
+    plot_channels_left(["densenet/dense-100-fisher-2600_2000_prunes", "densenet/dense-100_2-fisher-2300_2299_prunes"],
+                       DenseNet(12, 100, 0.5, 10, True, mask=1), 1500,
+                       save_name='plots/plots_WRN_num_channels_error_bars/dense_fisher_1500')
 
     # fisher vs random pruning
     # pruning_dict = {"random pruning": ["res-40-2-random_1299_prunes"],
@@ -208,18 +196,18 @@ if __name__ == "__main__":
     # plot_score(pruning_dict, scratch_dict, "param_history", save_name="plots/scores/l1_random_fisher")
 
     # fisher vs prune-retrain-prune
-    pruning_dict = {"fisher pruning": (["res-40-2-fischer_1299_prunes", "res-40-2_2_fisher_1299_prunes"]),
-                    "fischer_prune_scratch_repeat": (["res-40-2-retrain-1299-pruned", "res-40-2_2_retrain_1300"])}
-    scratch_dict = {"scratch fisher 600 channels":
-                        [("res-40-2-scratch/res-40-2-scratch-fisher-600", "res-40-2_fisher_600"),
-                         ("res-40-2-scratch/res-40-2_2-scratch-fisher-600", "res-40-2_2_fisher_600")],
-                    "scratch fisher 900 channels":
-                        [("res-40-2-scratch/res-40-2-scratch-fisher-900", "res-40-2_fisher_900"),
-                         ("res-40-2-scratch/res-40-2_2-scratch-fisher-900", "res-40-2_2_fisher_900")],
-                    "scratch fisher 1100 channels":
-                        [("res-40-2-scratch/res-40-2-scratch-fisher-1100", "res-40-2_fisher_1100"),
-                         ("res-40-2-scratch/res-40-2_2-scratch-fisher-1100", "res-40-2_2_fisher_1100")]}
-    plot_score(pruning_dict, scratch_dict, "param_history", save_name="plots/scores/fisher_fisher-scratch")
+    # pruning_dict = {"fisher pruning": (["res-40-2-fischer_1299_prunes", "res-40-2_2_fisher_1299_prunes"]),
+    #                 "fischer_prune_scratch_repeat": (["res-40-2-retrain-1299-pruned", "res-40-2_2_retrain_1300"])}
+    # scratch_dict = {"scratch fisher 600 channels":
+    #                     [("res-40-2-scratch/res-40-2-scratch-fisher-600", "res-40-2_fisher_600"),
+    #                      ("res-40-2-scratch/res-40-2_2-scratch-fisher-600", "res-40-2_2_fisher_600")],
+    #                 "scratch fisher 900 channels":
+    #                     [("res-40-2-scratch/res-40-2-scratch-fisher-900", "res-40-2_fisher_900"),
+    #                      ("res-40-2-scratch/res-40-2_2-scratch-fisher-900", "res-40-2_2_fisher_900")],
+    #                 "scratch fisher 1100 channels":
+    #                     [("res-40-2-scratch/res-40-2-scratch-fisher-1100", "res-40-2_fisher_1100"),
+    #                      ("res-40-2-scratch/res-40-2_2-scratch-fisher-1100", "res-40-2_2_fisher_1100")]}
+    # plot_score(pruning_dict, scratch_dict, "param_history", save_name="plots/scores/fisher_fisher-scratch")
 
     # not-so-dense net
     # pruning_dict = {"densenet-fisher": ["densenet/dense-100-fisher-2300_2299_prunes", "densenet/dense-100_2-fisher-2300_2299_prunes"]}
