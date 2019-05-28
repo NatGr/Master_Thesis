@@ -22,7 +22,7 @@ def build_squeezenext(inputs, regularizer, blocks_per_subnet=(1, 1, 1), num_clas
 
     x = AveragePooling2D(pool_size=8)(x)
     x = Flatten()(x)
-    outputs = Dense(units=num_classes, activation='softmax', kernel_regularizer=regularizer,
+    outputs = Dense(units=num_classes, activation=None, kernel_regularizer=regularizer,
                     bias_regularizer=regularizer)(x)
 
     return Model(inputs=inputs, outputs=outputs)

@@ -3,9 +3,10 @@ from tensorflow.keras.layers import BatchNormalization, Conv2D, AveragePooling2D
     Add
 from tensorflow.keras.models import Model
 from tensorflow.keras.initializers import VarianceScaling
+from .commons import se_block
 
 
-def build_wrn(inputs, depth, channels_dict, regularizer, num_classes=10, drop_rate=0.0):
+def build_wrn(inputs, depth, channels_dict, regularizer, num_classes=10, drop_rate=0.0, se_factor=0):
     """builds a wideresnet model given a channels_dict"""
     assert ((depth - 4) % 6 == 0)  # 4 = the initial conv layer + the 3 conv1*1 when we change the width
     n = int((depth - 4) / 6)
@@ -18,24 +19,24 @@ def build_wrn(inputs, depth, channels_dict, regularizer, num_classes=10, drop_ra
                kernel_regularizer=regularizer)(inputs)
 
     # 1st block
-    x = wrn_sub_network(x, 1, n, 1, drop_rate, channels_dict, regularizer=regularizer)
+    x = wrn_sub_network(x, 1, n, 1, drop_rate, channels_dict, regularizer=regularizer, se_factor=se_factor)
     # 2nd block
-    x = wrn_sub_network(x, 2, n, 2, drop_rate, channels_dict, regularizer=regularizer)
+    x = wrn_sub_network(x, 2, n, 2, drop_rate, channels_dict, regularizer=regularizer, se_factor=se_factor)
     # 3rd block
-    x = wrn_sub_network(x, 3, n, 2, drop_rate, channels_dict, regularizer=regularizer)
+    x = wrn_sub_network(x, 3, n, 2, drop_rate, channels_dict, regularizer=regularizer, se_factor=se_factor)
     # global average pooling and classifier
     x = BatchNormalization(beta_regularizer=regularizer, gamma_regularizer=regularizer)(x)
     x = Activation('relu')(x)
     x = AveragePooling2D(pool_size=8)(x)
     x = Flatten()(x)
-    outputs = Dense(units=num_classes, activation='softmax',
+    outputs = Dense(units=num_classes, activation=None,
                     kernel_initializer=VarianceScaling(scale=1/3, mode='fan_in', distribution="uniform"),
                     kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
 
     return Model(inputs=inputs, outputs=outputs)
 
 
-def wrn_sub_network(x, subnet_id, nb_layers, stride, drop_rate, channels_dict, regularizer):
+def wrn_sub_network(x, subnet_id, nb_layers, stride, drop_rate, channels_dict, regularizer, se_factor):
     """creates a w.r.n subnetwork with the given parameters, x denotes the input, the output is returned"""
     for i in range(nb_layers):
         conv1_name = f"Conv_{subnet_id}_{i}_1"
@@ -51,12 +52,13 @@ def wrn_sub_network(x, subnet_id, nb_layers, stride, drop_rate, channels_dict, r
 
             # otherwise there is nothing to add to the WRN
         else:
-            x = wrn_block(x, subnet_id, i, stride if i == 0 else 1, drop_rate, channels_dict, regularizer=regularizer)
+            x = wrn_block(x, subnet_id, i, stride if i == 0 else 1, drop_rate, channels_dict, regularizer=regularizer,
+                          se_factor=se_factor)
 
     return x
 
 
-def wrn_block(x, subnet_id, block_offset, stride, drop_rate, channels_dict, regularizer):
+def wrn_block(x, subnet_id, block_offset, stride, drop_rate, channels_dict, regularizer, se_factor):
     """creates a w.r.n block with the given parameters, the output is returned"""
     conv1_name = f"Conv_{subnet_id}_{block_offset}_1"
     conv2_name = f"Conv_{subnet_id}_{block_offset}_2"
@@ -81,4 +83,8 @@ def wrn_block(x, subnet_id, block_offset, stride, drop_rate, channels_dict, regu
         x = Conv2D(channels_dict[skip_name], kernel_size=1, padding="same", use_bias=False, strides=stride,
                    name=skip_name, kernel_initializer=VarianceScaling(scale=2.0, mode='fan_out'),
                    kernel_regularizer=regularizer)(x_bn_a_1)
+
+    if se_factor != 0 and stride == 1:
+        x = se_block(x, channels_dict[conv2_name], se_factor, regularizer)
+
     return Add()([out, x])

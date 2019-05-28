@@ -26,7 +26,7 @@ def build_mobilenetv2(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_clas
     x = Flatten()(x)
     if use_dropout:
         x = Dropout(rate=.2)(x)
-    outputs = Dense(units=num_classes, activation='softmax', kernel_regularizer=regularizer,
+    outputs = Dense(units=num_classes, activation=None, kernel_regularizer=regularizer,
                     bias_regularizer=regularizer)(x)
 
     return Model(inputs=inputs, outputs=outputs)

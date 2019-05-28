@@ -20,7 +20,7 @@ def build_effnet(inputs, regularizer, blocks_per_subnet=(1, 1, 1), num_classes=1
         x = effnet_block(x, ch_bottle, ch_out, stride=True, regularizer=regularizer)
 
     x = Flatten()(x)
-    outputs = Dense(num_classes, activation='softmax', kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
+    outputs = Dense(num_classes, activation=None, kernel_regularizer=regularizer, bias_regularizer=regularizer)(x)
     return Model(inputs=inputs, outputs=outputs)
 
 
