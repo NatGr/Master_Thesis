@@ -24,9 +24,6 @@ from LRTensorBoard import LRTensorBoard
 from KDDataGenerator import KDDataGenerator
 from losses import categorical_crossentropy_from_logits, knowledge_distillation_loss
 
-import tensorflow as tf
-tf.enable_eager_execution()
-
 parser = argparse.ArgumentParser(description='Training and saving in tf_lite')
 parser.add_argument('--workers', default=1, type=int, help='number of data loading workers')
 parser.add_argument('--save_file', default='saveto', type=str, help='name to use for this file')
@@ -224,13 +221,14 @@ if __name__ == '__main__':
         data_gen.build_prediction_array(model, file_name)
 
     if args.get_tf_lite:
-        # save it to tf_lite
-        tmp_keras_file = os.path.join(args.tmp_folder, f"{args.save_file}.h5")
         tflite_file = os.path.join(MODELS_DIR, f"{args.save_file}.tflite")
-        save_model(model, tmp_keras_file)
+        tmp_keras_file = os.path.join(args.tmp_folder, f"{args.save_file}.h5")
+
+        save_model(model, tmp_keras_file, include_optimizer=False)
 
         # Convert to TensorFlow Lite model.
         converter = lite.TFLiteConverter.from_keras_model_file(tmp_keras_file)
         tflite_model = converter.convert()
+
         with open(tflite_file, "wb") as file:
             file.write(tflite_model)
