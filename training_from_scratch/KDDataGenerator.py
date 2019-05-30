@@ -125,4 +125,4 @@ class KDDataGenerator(Sequence):
             if (i + 1) % 1000 == 0:
                 print(f"{i+1} images computed")
 
-        np.save(f"{file_name}{'_val' if self.train_val_set else ''}", model_pred)
+        np.savez_compressed(f"{file_name}{'_val' if self.train_val_set else ''}", pred=model_pred)

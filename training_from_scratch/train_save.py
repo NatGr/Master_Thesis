@@ -158,8 +158,14 @@ if __name__ == '__main__':
     if args.teacher_pred is None:
         pred_array = None
     else:
-        with open(os.path.join(TEACHER_DIR, args.teacher_pred + '.npy'), 'rb') as file:
-            pred_array = np.load(file)
+        try:
+            with open(os.path.join(TEACHER_DIR, args.teacher_pred + '.npz'), 'rb') as file:
+                pred_array = np.load(file)
+                pred_array = pred_array["pred"]
+        except FileNotFoundError:
+            with open(os.path.join(TEACHER_DIR, args.teacher_pred + '.npy'), 'rb') as file:  # tries to open npy files
+                # if npz fails (we did not used npz files initially)
+                pred_array = np.load(file)
 
     data_gen = KDDataGenerator(args.train_val_set, args.batch_size, pred_array, args.temperature)
 
