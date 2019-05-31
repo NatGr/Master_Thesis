@@ -1,3 +1,4 @@
+"""quantizes a pretrained model, need tensorflow 2 nightly (as of early june 2019) to run"""
 from tensorflow.keras.datasets import cifar10
 import numpy as np
 import argparse
@@ -19,20 +20,32 @@ if __name__ == '__main__':
     tmp_keras_file = os.path.join(KERAS_DIR, f"{args.keras_file}.h5")
     tflite_file = os.path.join(TF_LITE_DIR, f"{args.keras_file}_quantized.tflite")
 
+    (x_calibrate, _), (x_test, y_test) = cifar10.load_data()
+    channel_wise_mean = np.reshape(np.array([125.3, 123.0, 113.9]), (1, 1, 1, -1))
+    channel_wise_std = np.reshape(np.array([63.0, 62.1, 66.7]), (1, 1, 1, -1))
+    x_test = ((x_test - channel_wise_mean) / channel_wise_std).astype(np.float32)
+    x_calibrate = tf.cast(((x_calibrate - channel_wise_mean) / channel_wise_std), tf.float32)
+
+
     # Convert to TensorFlow Lite model.
     model = load_model(tmp_keras_file)
     converter = lite.TFLiteConverter.from_keras_model(model)
+    converter.optimizations = [lite.Optimize.DEFAULT]
+
+    calibration_ds = tf.data.Dataset.from_tensor_slices(x_calibrate).batch(1)  # turns into a dataset composed of
+    # batches of size 1
+
+    def representative_data_gen():
+        for input_value in calibration_ds.take(50000):  # it does not cost anything to use the full dataset
+            yield [input_value]
+    converter.representative_dataset = representative_data_gen
+
     tflite_model = converter.convert()
-    converter.optimizations = [lite.Optimize.OPTIMIZE_FOR_SIZE]
+
     with open(tflite_file, "wb") as file:
         file.write(tflite_model)
 
     # computes accuracy
-    (_, _), (x_test, y_test) = cifar10.load_data()
-    channel_wise_mean = np.reshape(np.array([125.3, 123.0, 113.9]), (1, 1, 1, -1))
-    channel_wise_std = np.reshape(np.array([63.0, 62.1, 66.7]), (1, 1, 1, -1))
-    x_test = ((x_test - channel_wise_mean) / channel_wise_std).astype(np.float32)
-
     interpreter = lite.Interpreter(model_path=tflite_file)
     interpreter.allocate_tensors()
 

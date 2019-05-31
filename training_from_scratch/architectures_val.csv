@@ -113,6 +113,3 @@ mnasnet_modified_d12_er4_w16_dropout,mnasnet,12,16,4,.9338,.0425
 mnasnet_modified_d12_er4_w24_dropout,mnasnet,12,24,4,.9424,.0788
 mnasnet_modified_d12_er6_w16_dropout,mnasnet,12,16,6,.9438,.0644
 mnasnet_modified_d12_er6_w24_dropout,mnasnet,12,24,6,.9498,.1212
-
-
-mobilenetv1_d15_w100_se2_cosine,mobilenetv1,15,100,2,.9442,.1749
