@@ -10,7 +10,7 @@ def build_mnasnet(inputs, regularizer, blocks_per_subnet=(4, 4, 4), num_classes=
                   channels_per_subnet=(32, 64, 128), expansion_factor=4, use_dropout=False, se_factor=0):
     """builds a mnasnet network for cifar-10, we hypothesizes that the first block of mnasnet was as is it only because
     of input feature map resolution, thus this is basically a mobilenetv2 with 5*5 convolutions in the middle. We also
-    use expansion_factor/2 in the first subnetwork"""
+    use expansion_factor/2 in the first layer of the first subnetwork"""
     x = conv_2d_with_bn_relu(16, kernel_size=3, regularizer=regularizer, relu_max_value=6)(inputs)
 
     # like for WRN, only applies stride on first block of subnets 2 and 3:
