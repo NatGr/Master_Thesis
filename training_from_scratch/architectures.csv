@@ -12,14 +12,13 @@ mobilenetv1_d15_w100_cosine,mobilenetv1,15,100,NaN,.9468,.9457,.9451,.1501
 mobilenetv1_d15_w32_se2_cosine,mobilenetv1,15,32,2,.925,.9264,.9254,.0292
 mobilenetv1_d12_w64_se2_cosine,mobilenetv1,12,64,2,.9404,.9393,.9401,.0630
 mobilenetv1_d15_w100_se2_cosine,mobilenetv1,15,80,2,.9489,.9475,.9472,.1749
-mobilenetv1_d18_w100_cosine,mobilenetv1,18,100,NaN,.9436,.9446,.9461,.1879
 mobilenetv2_d12_er6_w24_dropout,mobilenetv2,12,24,6,.9419,.9448,.9434,.1077
 mobilenetv2_d9_er4_w24_dropout,mobilenetv2,9,24,4,.9359,.9334,.9362,.0503
 mobilenetv2_d9_er4_w16_dropout,mobilenetv2,9,16,4,.9284,.9277,.9305,.0272
 mobilenetv2_d12_er6_w24_se2_dropout,mobilenetv2,12,24,6,.9456,.9464,.946,.1080
 mobilenetv2_d9_er4_w24_se2_dropout,mobilenetv2,9,24,4,.9398,.9414,.9394,.0526
 mobilenetv2_d9_er4_w16_se2_dropout,mobilenetv2,9,16,4,.9295,.9286,.9302,.0286
-mnasnet_d12_er6_w24_dropout,mnasnet,12,24,6,NaN,.9484,.9458,.1212
+mnasnet_d12_er6_w24_dropout,mnasnet,12,24,6,.9399,.9484,.9458,.1212
 mnasnet_d12_er6_w16_dropout,mnasnet,12,16,6,.9391,.939,.9377,.0644
 mnasnet_d9_er4_w16_dropout,mnasnet,9,16,4,.9257,.9262,.9297,.0307
 mnasnet_d12_er6_w24_se2_dropout,mnasnet,12,24,6,.9457,.9471,.9473,.1213
