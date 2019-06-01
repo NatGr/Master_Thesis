@@ -225,7 +225,8 @@ if __name__ == '__main__':
                         validation_data=data_gen.get_val_data(),  # Take care that validation loss is meaningless when
                         # using KD (I'm forced to compute it by keras <3 <3 <3)
                         workers=args.workers,
-                        callbacks=callbacks)
+                        callbacks=callbacks,
+                        verbose=2)
 
     if args.save_pred_table:  # in that case we save the predictions on the entire dataset
         file_name = os.path.join(TEACHER_DIR, args.save_file)
