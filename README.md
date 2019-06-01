@@ -5,11 +5,11 @@
 The objective of this master thesis is to explore the different techniques used to reduce the resource consumptions of CNNs at inference.   
 Due to GPU-ressource limitations, we limited ourselves to use the CIFAR-10 dataset in order to compare the different networks.
 The techniques investigated were:  
-    1. Base CNN architecture (WideResnet, ShuffleNets, EffNet, CondenseNet, MobileNets,...) and their related parameters (depth, width, bottlenecks,...)  
-    2. We tried to use pruning as an architecture search algorithm, i.e. starting from a wider network, using some pruning algorithm to prune certain channels, obtaining a thinner network and retraining it from scratch.
-    We tested the NetAdapt, MorphNet and Fisher pruning. Interestingly, NetAdapt was later used for the same purpose in MobileNetsv3 (that where not public when we started this thesis).
+1.  Base CNN architecture (WideResnet, ShuffleNets, EffNet, CondenseNet, MobileNets,...) and their related parameters (depth, width, bottlenecks,...)  
+1.  We tried to use pruning as an architecture search algorithm, i.e. starting from a wider network, using some pruning algorithm to prune certain channels, obtaining a thinner network and retraining it from scratch.  
+    We tested the NetAdapt, MorphNet and Fisher pruning. Interestingly, NetAdapt was later used for the same purpose in MobileNetsv3 (that where not public when we started this thesis).   
     Unfortunately, all the algorithms we tested did not show better results than mere random pruning on a WideResNet-40-2 on CIFAR-10 using a raspberry-pi 3B to perform inference. Wether it is also the case for other architectures/hardwares/datasets remains to be determined.  
-    3. We tried to use knowledge distillation, that did not show any improvements on the results. We also tried to use tensorflow's built-in quantization capabilities but to no avail, at the time I'm writing these lines, these quantization capabilities remain very experimental and buggy.
+1.  We tried to use knowledge distillation, that did not show any improvements on the results. We also tried to use tensorflow's built-in quantization capabilities but to no avail, at the time I'm writing these lines, these quantization capabilities remain very experimental and buggy.
     
     
 ### Repository structure:
