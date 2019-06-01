@@ -60,13 +60,14 @@ parser.add_argument('--weight_decay', default=0.0001, type=float, help='weight d
 parser.add_argument('--net', choices=['resnet', 'effnet', 'squeezenext', 'mobilenetv1', 'mobilenetv2', 'shufflenetv1',
                                       'shufflenetv2', 'nasnet', 'mnasnet'])
 parser.add_argument('--depth', '-d', default=40, type=int, help='depth of network')
-parser.add_argument('--channels_pickle', type=str, help='name of the pickle file containing the number of channels for '
-                                                        'each layers, only used with res')
+parser.add_argument('--channels_pickle', default=None, type=str,
+                    help='name of the pickle file containing the number of channels for each layers, only used with res')
 parser.add_argument('--expansion_rate', default=2, type=int, help='effnet/mobilenetv2 expansion rate')
 parser.add_argument('--num_groups', default=3, type=int, help='number of groups for shufflenetv1')
-parser.add_argument('--width', default=32, type=int, help='width of the first subnetwork, width are multiplied by 2 at '
-                                                          'each application of stride, this argument is ignored for '
-                                                          'WRN')
+parser.add_argument('--width', default=32, type=int,
+                    help='width of the first subnetwork, width are multiplied by 2 at each application of stride, '
+                         'this argument is ignored for WRN if channels_pickle is specified')
+
 parser.add_argument('--use_dropout', action='store_true',
                     help='whether to use a dropout of .2 before the final classification layer, '
                          'only affects the mobilenets, shufflenetv2 and mnasnet')
@@ -110,14 +111,18 @@ if args.net == 'effnet':
     # networks
 
 if args.net == 'resnet':
-    with open(args.channels_pickle, 'rb') as file:
-        channels_dict = pickle.load(file)
-        if isinstance(next(iter(channels_dict.values())), tuple):  # in the case of morphnet,
-            # values are (53, 128) instead of 53
-            for key, value in channels_dict.items():
-                channels_dict[key] = value[0]
+    if args.channels_pickle is None:
+        channels_dict = None
+    else:
+        with open(args.channels_pickle, 'rb') as file:
+            channels_dict = pickle.load(file)
+            if isinstance(next(iter(channels_dict.values())), tuple):  # in the case of morphnet,
+                # values are (53, 128) instead of 53
+                for key, value in channels_dict.items():
+                    channels_dict[key] = value[0]
 
-    model = build_wrn(inputs, args.depth, channels_dict, regularizer=regularizer, se_factor=args.se_factor)
+    model = build_wrn(inputs, args.depth, regularizer=regularizer, se_factor=args.se_factor,
+                      channels_dict=channels_dict, width=args.width)
 
 elif args.net == 'effnet':
     model = build_effnet(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
@@ -220,8 +225,7 @@ if __name__ == '__main__':
                         validation_data=data_gen.get_val_data(),  # Take care that validation loss is meaningless when
                         # using KD (I'm forced to compute it by keras <3 <3 <3)
                         workers=args.workers,
-                        callbacks=callbacks,
-                        verbose=2)
+                        callbacks=callbacks)
 
     if args.save_pred_table:  # in that case we save the predictions on the entire dataset
         file_name = os.path.join(TEACHER_DIR, args.save_file)

@@ -6,6 +6,7 @@ I used tensorflow lite to compute the tables instead (compute_table.py).
 This means that two environments (one with pytorch and scikit learn and one with tensorflow 1.13.1 (or one environment with both) are needed to run the project.
 The tensorflow environment used on the rasberry-pi comes from [this page](https://github.com/PINTO0309/Tensorflow-bin)
 Initially I cross compiled it myself but I suffered several bugs doing so that the author of the previous repo corrected.
+I crosscompiled the tf-lite binaries used on the raspberry-pi. They are available in the root repository.
 
 First, the base network needs to be built, 
 ```
@@ -29,4 +30,4 @@ python compute_table.py --save_file='res-40-2-tf-lite-2-times' --eval_method='tf
 on the targeted device, compute_table uses a res-40-2 by default
 
 
-Unfortunately, the network objects used in this script are non trivial to implement (see model/wideresnet.py) for example
+Unfortunately, the network objects used in this script are non trivial to implement (see model/wideresnet.py) for example.

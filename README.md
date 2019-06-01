@@ -5,8 +5,11 @@
 The objective of this master thesis is to explore the different techniques used to reduce the resource consumptions of CNNs at inference. 
 Due to GPU-ressource limitations, we limited ourselves to use the CIFAR-10 dataset in order to compare the different networks.
 The techniques investigated were:
-    1. Base CNN architecture (WideResnet, ShuffleNet, EffNet, CondenseNet, MobileNet,...) and their related parameters (depth, width, bottlenecks,...)
-    2. Number of channels per layers (fisher pruning, morphnet and NetAdapt algorithms)
+    1. Base CNN architecture (WideResnet, ShuffleNets, EffNet, CondenseNet, MobileNets,...) and their related parameters (depth, width, bottlenecks,...)
+    2. We tried to use pruning as an architecture search algorithm, i.e. starting from a wider network, using some pruning algorithm to prune certain channels, obtaining a thinner network and retraining it from scratch.
+    We tested the NetAdapt, MorphNet and Fisher pruning. Interestingly, NetAdapt was later used for the same purpose in MobileNetsv3 (that where not public when we started this thesis).
+    Unfortunately, all the algorithms we tested did not show better results than mere random pruning on a WideResNet-40-2 on CIFAR-10 using a raspberry-pi 3B to perform inference. Wether it is also the case for other architectures/hardwares/datasets remains to be determined.
+    3. We tried to use knowledge distillation, that did not show any improvements on the results. We also tried to use tensorflow's built-in quantization capabilities but to no avail, at the time I'm writing these lines, these quantization capabilities remain very experimental and buggy.
     
     
 ### Repository structure:
@@ -15,5 +18,5 @@ The techniques investigated were:
 	- NetAdapt: self-made implementation of the paper "[NetAdapt: Platform-Aware Neural Network Adaptation for Mobile Applications][http://arxiv.org/abs/1804.03230]", several modifications were made (the main ones are: fisher pruning instead of weights-norm pruning and training from scratch rather than long term fine-tuning)
 	- pytorch-prunes: modification of the code of the paper "[Pruning neural networks: is it time to nip it in the bud?][https://arxiv.org/abs/1810.04622]"
 	- schemes: a folder containing the .odf file I used to create custom schemes to illustrate the different neural networks architectures
-	- training_from_scratch: a repo containing the code that trains neural networks in tensorflow to then load them as .tflite models on the rasberry-pi
+	- training_from_scratch: a repo containing the code that trains neural networks in tensorflow to then load them as .tflite models on the rasberry-pi. This repo also handles knowledge distillation.
 	- The cross-compiled tflite 1.13.1 binary as well as the "benchmark" binary that are used for benchmarking.

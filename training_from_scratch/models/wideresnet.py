@@ -6,12 +6,23 @@ from tensorflow.keras.initializers import VarianceScaling
 from .commons import se_block
 
 
-def build_wrn(inputs, depth, channels_dict, regularizer, num_classes=10, drop_rate=0.0, se_factor=0):
-    """builds a wideresnet model given a channels_dict"""
+def build_wrn(inputs, depth, regularizer, num_classes=10, drop_rate=0.0, se_factor=0, channels_dict=None, width=None):
+    """builds a wideresnet model given a channels_dict
+    if channels_dict is unspecified, width is used instead"""
     assert ((depth - 4) % 6 == 0)  # 4 = the initial conv layer + the 3 conv1*1 when we change the width
     n = int((depth - 4) / 6)
 
     first_layer_name = "Conv_0"
+
+    if channels_dict is None:
+        assert (width is not None)
+        channels_dict = {"Conv_0": 16}
+        for i in range(1, 4):
+            channels_dict[f"Skip_{i}"] = width
+            for j in range(n):
+                channels_dict[f"Conv_{i}_{j}_1"] = width
+                channels_dict[f"Conv_{i}_{j}_2"] = width
+            width *= 2
 
     # 1st conv before any network block
     x = Conv2D(channels_dict[first_layer_name], kernel_size=3, padding="same", use_bias=False,
