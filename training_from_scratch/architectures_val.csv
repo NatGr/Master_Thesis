@@ -113,3 +113,15 @@ mnasnet_modified_d12_er4_w16_dropout,mnasnet,12,16,4,.9338,.0425
 mnasnet_modified_d12_er4_w24_dropout,mnasnet,12,24,4,.9424,.0788
 mnasnet_modified_d12_er6_w16_dropout,mnasnet,12,16,6,.9438,.0644
 mnasnet_modified_d12_er6_w24_dropout,mnasnet,12,24,6,.9498,.1212
+res_d22_w16,wideresnet,22,16,NaN,.9308,.0489
+res_d22_w24,wideresnet,22,24,NaN,.9416,.1008
+res_d22_w32,wideresnet,22,32,NaN,.945,.1733
+res_d28_w16,wideresnet,28,16,NaN,.9332,.0653
+res_d28_w24,wideresnet,28,24,NaN,.9424,.1362
+res_d28_w32,wideresnet,28,32,NaN,.95,.2354
+res_d34_w16,wideresnet,34,16,NaN,.9354,.0806
+res_d34_w24,wideresnet,34,24,NaN,.9453,.1738
+res_d34_w32,wideresnet,34,32,NaN,.951,.2968
+res_d40_w16,wideresnet,40,16,NaN,.9394,.0973
+res_d40_w24,wideresnet,40,24,NaN,.9434,.2041
+res_d40_w32,wideresnet,40,32,NaN,.9538,.3588
