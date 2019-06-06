@@ -33,3 +33,10 @@ mobilenetv2_d9_er4_w16_se2_dropout_KD_t2_l02,mobilenetv2,9,16,4,2,.929,.9254,.93
 mnasnet_d12_er6_w24_se2_dropout_KD_t2_l02,mnasnet,12,24,6,2,.9461,.9469,.9473,.1213
 mnasnet_d12_er6_w16_se2_dropout_KD_t2_l02,mnasnet,12,16,6,2,.9366,.9397,.9393,.0656
 mnasnet_d9_er4_w16_se2_dropout_KD_t2_l02,mnasnet,9,16,4,2,.9281,.932,.9289,.0327
+res_d22_w16_KD_t2_l02,wideresnet,22,16,NaN,NaN,.9279,.9242,.9303,.0489
+res_d22_w24_KD_t2_l02,wideresnet,22,24,NaN,NaN,.9406,.94,.9417,.1008
+res_d28_w32_KD_t2_l02,wideresnet,28,32,NaN,NaN,.9494,.9468,.9511,.2354
+res_d22_w16,wideresnet,22,16,NaN,NaN,.9296,.9267,.9252,.0489
+res_d22_w24,wideresnet,22,24,NaN,NaN,.9399,.9409,.9431,.1008
+res_d28_w32,wideresnet,28,32,NaN,NaN,.9446,.95,.9477,.2354
+
