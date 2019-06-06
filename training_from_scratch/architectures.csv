@@ -33,3 +33,4 @@ mobilenetv2_d9_er4_w16_se2_dropout_KD_t2_l02,mobilenetv2,9,16,4,2,.929,.9254,.93
 mnasnet_d12_er6_w24_se2_dropout_KD_t2_l02,mnasnet,12,24,6,2,.9461,.9469,.9473,.1213
 mnasnet_d12_er6_w16_se2_dropout_KD_t2_l02,mnasnet,12,16,6,2,.9366,.9397,.9393,.0656
 mnasnet_d9_er4_w16_se2_dropout_KD_t2_l02,mnasnet,9,16,4,2,.9281,.932,.9289,.0327
+wideresnet_40_4_se2_for_KD,wideresnet,40,4,NaN,2,.9576,.9568,.9556,NaN
