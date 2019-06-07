@@ -11,7 +11,7 @@ mobilenetv1_d12_w64_cosine,mobilenetv1,12,64,NaN,NaN,.9351,.935,.936,.0528
 mobilenetv1_d15_w100_cosine,mobilenetv1,15,100,NaN,NaN,.9468,.9457,.9451,.1501
 mobilenetv1_d15_w32_se2_cosine,mobilenetv1,15,32,NaN,2,.925,.9264,.9254,.0292
 mobilenetv1_d12_w64_se2_cosine,mobilenetv1,12,64,NaN,2,.9404,.9393,.9401,.0630
-mobilenetv1_d15_w100_se2_cosine,mobilenetv1,15,80,NaN,2,.9489,.9475,.9472,.1749
+mobilenetv1_d15_w100_se2_cosine,mobilenetv1,15,100,NaN,2,.9489,.9475,.9472,.1749
 mobilenetv2_d12_er6_w24_dropout,mobilenetv2,12,24,6,NaN,.9419,.9448,.9434,.1077
 mobilenetv2_d9_er4_w24_dropout,mobilenetv2,9,24,4,NaN,.9359,.9334,.9362,.0503
 mobilenetv2_d9_er4_w16_dropout,mobilenetv2,9,16,4,NaN,.9284,.9277,.9305,.0272
@@ -26,7 +26,7 @@ mnasnet_d12_er6_w16_se2_dropout,mnasnet,12,16,6,2,.9391,.9403,.9414,.0656
 mnasnet_d9_er4_w16_se2_dropout,mnasnet,9,16,4,2,.9287,.9279,.9307,.0327
 mobilenetv1_d15_w32_se2_cosine_KD_t2_l02,mobilenetv1,15,32,NaN,2,.9254,.9296,.9247,.0292
 mobilenetv1_d12_w64_se2_cosine_KD_t2_l02,mobilenetv1,12,64,NaN,2,.941,.9406,.9434,.0630
-mobilenetv1_d15_w100_se2_cosine_KD_t2_l02,mobilenetv1,15,80,NaN,2,.9491,.9492,.9492,.1749
+mobilenetv1_d15_w100_se2_cosine_KD_t2_l02,mobilenetv1,15,100,NaN,2,.9491,.9492,.9492,.1749
 mobilenetv2_d12_er6_w24_se2_dropout_KD_t2_l02,mobilenetv2,12,24,6,2,.9434,.9452,.9478,.1080
 mobilenetv2_d9_er4_w24_se2_dropout_KD_t2_l02,mobilenetv2,9,24,4,2,.9401,.9373,.9369,.0526
 mobilenetv2_d9_er4_w16_se2_dropout_KD_t2_l02,mobilenetv2,9,16,4,2,.929,.9254,.9301,.0286
@@ -34,3 +34,12 @@ mnasnet_d12_er6_w24_se2_dropout_KD_t2_l02,mnasnet,12,24,6,2,.9461,.9469,.9473,.1
 mnasnet_d12_er6_w16_se2_dropout_KD_t2_l02,mnasnet,12,16,6,2,.9366,.9397,.9393,.0656
 mnasnet_d9_er4_w16_se2_dropout_KD_t2_l02,mnasnet,9,16,4,2,.9281,.932,.9289,.0327
 wideresnet_40_4_se2_for_KD,wideresnet,40,4,NaN,2,.9576,.9568,.9556,NaN
+res_d22_w16_KD_t2_l02,wideresnet,22,16,NaN,NaN,.9279,.9242,.9303,.0489
+res_d22_w24_KD_t2_l02,wideresnet,22,24,NaN,NaN,.9406,.94,.9417,.1008
+res_d28_w32_KD_t2_l02,wideresnet,28,32,NaN,NaN,.9494,.9468,.9511,.2354
+res_d22_w16,wideresnet,22,16,NaN,NaN,.9296,.9267,.9252,.0489
+res_d22_w24,wideresnet,22,24,NaN,NaN,.9399,.9409,.9431,.1008
+res_d28_w32,wideresnet,28,32,NaN,NaN,.9446,.95,.9477,.2354
+res_d22_w16_se2,wideresnet,22,16,NaN,2,.9317,.9277,.9285,.0510
+res_d22_w24_se2,wideresnet,22,24,NaN,2,.9396,.941,.9402,.1054
+res_d28_w32_se2,wideresnet,28,32,NaN,2,.9491,.945,.9479,.2431
