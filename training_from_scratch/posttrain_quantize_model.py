@@ -1,4 +1,5 @@
-"""quantizes a pretrained model, need tensorflow 2 nightly (as of early june 2019) to run"""
+"""quantizes a pretrained model, need tensorflow 2 nightly (as of early june 2019) to run
+the interpreter ndo not work and we cannot manage to make the .tflite file run on tensorflow."""
 from tensorflow.keras.datasets import cifar10
 import numpy as np
 import argparse
