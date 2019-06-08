@@ -11,6 +11,7 @@ from tensorflow.keras.regularizers import l2
 from LRTensorBoard import LRTensorBoard
 from KDDataGenerator import KDDataGenerator
 
+
 parser = argparse.ArgumentParser(description='Training and saving in tf_lite')
 parser.add_argument('--workers', default=1, type=int, help='number of data loading workers')
 parser.add_argument('--save_file', default='saveto', type=str, help='name to use for this file')
@@ -64,9 +65,13 @@ def build_keras_model(args):
 
     for i in range(3):
         for j in range(blocks_per_subnet[i]):
+            layers.append(tf.keras.layers.BatchNormalization(beta_regularizer=regularizer,
+                                                             gamma_regularizer=regularizer, fused=False))
             layers.append(tf.keras.layers.DepthwiseConv2D(kernel_size=3, activation="relu",
                                                           strides=2 if i != 0 and j == 0 else 1, padding="same",
                                                           use_bias=False, kernel_regularizer=regularizer))
+            layers.append(tf.keras.layers.BatchNormalization(beta_regularizer=regularizer,
+                                                             gamma_regularizer=regularizer, fused=False))
             layers.append(tf.keras.layers.Conv2D(channels_per_subnet[i], kernel_size=3, activation="relu",
                                                  padding="same", use_bias=False, kernel_regularizer=regularizer))
 
@@ -76,6 +81,14 @@ def build_keras_model(args):
                                         bias_regularizer=regularizer))
 
     return tf.keras.Sequential(layers)
+
+# def build_keras_model(args):
+#     blocks_per_subnet = [int(args.depth / 3)] * 3
+#     regularizer = l2(args.weight_decay)
+#     channels_per_subnet = [args.width, args.width * 2, args.width * 4]
+#     return build_mobilenetv2(Input(32, 32, 3), regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
+#                               channels_per_subnet=channels_per_subnet, expansion_factor=6,
+#                               use_dropout=False, se_factor=0)
 
 
 if __name__ == '__main__':
@@ -122,8 +135,6 @@ if __name__ == '__main__':
                             callbacks=callbacks,
                             verbose=2)
 
-        tf.contrib.quantize.create_eval_graph()
-
         if args.get_tf_lite:
             tflite_file = os.path.join(MODELS_DIR, f"{args.save_file}.tflite")
             tmp_folder = os.path.join(args.tmp_folder, args.save_file)
@@ -138,22 +149,22 @@ if __name__ == '__main__':
         eval_sess = tf.Session(graph=eval_graph)
 
         tf.keras.backend.set_session(eval_sess)
-        with eval_sess:
-            with eval_graph.as_default():
-                eval_model = build_keras_model(args)
-                tf.contrib.quantize.create_eval_graph(input_graph=eval_graph)
-                eval_graph_def = eval_graph.as_graph_def()
-                saver = tf.train.Saver()
-                saver.restore(eval_sess, tmp_folder)
+        with eval_graph.as_default():
+            tf.keras.backend.set_learning_phase(0)
+            eval_model = build_keras_model(args)
+            tf.contrib.quantize.create_eval_graph(input_graph=eval_graph)
+            eval_graph_def = eval_graph.as_graph_def()
+            saver = tf.train.Saver()
+            saver.restore(eval_sess, tmp_folder)
 
-                frozen_graph_def = tf.graph_util.convert_variables_to_constants(
-                    eval_sess,
-                    eval_graph_def,
-                    [eval_model.output.op.name]
-                )
+            frozen_graph_def = tf.graph_util.convert_variables_to_constants(
+                eval_sess,
+                eval_graph_def,
+                [eval_model.output.op.name]
+            )
 
-                with open(tmp_pb_file, 'wb') as f:
-                    f.write(frozen_graph_def.SerializeToString())
+            with open(tmp_pb_file, 'wb') as f:
+                f.write(frozen_graph_def.SerializeToString())
 
         print("-----------")
         print("running tf_convert")
