@@ -9,7 +9,7 @@ The techniques investigated were:
 1.  We tried to use pruning as an architecture search algorithm, i.e. starting from a wider network, using some pruning algorithm to prune certain channels, obtaining a thinner network and retraining it from scratch.  
     We tested the NetAdapt, MorphNet and Fisher pruning. Interestingly, NetAdapt was later used for the same purpose in MobileNetsv3 (that where not public when we started this thesis).   
     Unfortunately, all the algorithms we tested did not show better results than mere random pruning on a WideResNet-40-2 on CIFAR-10 using a raspberry-pi 3B to perform inference. Wether it is also the case for other architectures/hardwares/datasets remains to be determined.  
-1.  We tried to use knowledge distillation, that did not show any improvements on the results. We also tried to use tensorflow's built-in quantization capabilities but to no avail, at the time I'm writing these lines, these quantization capabilities remain very experimental and buggy.
+1.  We tried to use knowledge distillation, this did show interesting improvements but only for MobileNetv1 (We don't know why -- seems like something worth exploring in details). We also tried to use tensorflow's built-in quantization capabilities and manage to use them on MobileNetv1 and only those (this only works with Sequantial models and remains extremely buggy).
     
     
 ### Repository structure:
