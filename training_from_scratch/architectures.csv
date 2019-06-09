@@ -43,3 +43,10 @@ res_d28_w32,wideresnet,28,32,NaN,NaN,.9446,.95,.9477,.2354
 res_d22_w16_se2,wideresnet,22,16,NaN,2,.9317,.9277,.9285,.0510
 res_d22_w24_se2,wideresnet,22,24,NaN,2,.9396,.941,.9402,.1054
 res_d28_w32_se2,wideresnet,28,32,NaN,2,.9491,.945,.9479,.2431
+mobilenetv1_d15_w32_cosine_newKD,mobilenetv1_KD,15,32,NaN,NaN,.9242,.9261,.9236,.0226
+mobilenetv1_d12_w64_cosine_newKD,mobilenetv1_KD,12,64,NaN,NaN,.9398,.9415,.9398,.0528
+mobilenetv1_d15_w32_se2_cosine_newKD,mobilenetv1_KD,15,32,NaN,2,.9273,.9303,.9291,.0292
+mobilenetv1_d12_w64_se2_cosine_newKD,mobilenetv1_KD,12,64,NaN,2,.9427,.9423,.9437,.0630
+mobilenetv2_d9_er4_w24_se2_dropout_newKD_t2_l02,mobilenetv2_KD,9,24,4,2,.9398,.9406,.9338,.0526
+mobilenetv2_d9_er4_w24_dropout_newKD_t2_l02,mobilenetv2_KD,9,24,4,NaN,.9333,.9352,.9355,.0503
+mobilenetv2_d9_er4_w16_dropout_newKD_t2_l02,mobilenetv2_KD,9,16,4,NaN,.9292,.929,.9307,.0272
