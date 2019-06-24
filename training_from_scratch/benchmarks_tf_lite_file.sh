@@ -25,7 +25,12 @@ shuffle_tf_lite_files() {
 add_results_to_dict() {
     for tf_lite_file in "${tf_lite_files[@]}" ; do
         sleep 10s
-        score=$(/home/pi/tf-lite/benchmark_model --graph=${tf_lite_file} --num_runs=50 |& tr -d '\n' | awk '{print $NF}')
+        if [[ $tf_lite_file == *"quantized"* ]]; then
+          score=$(../tf-lite-2/benchmark_model --graph=${tf_lite_file} --num_runs=50 |& tr -d '\n' | awk '{print $NF}')
+        else
+          score=$(../tf-lite-1/benchmark_model --graph=${tf_lite_file} --num_runs=50 |& tr -d '\n' | awk '{print $NF}')
+        fi
+        
         # tr removes the \n and awk gets the last element of the outputs message, |& is used before tr because we want
         # to pipe stderr and not stdout
         echo "${tf_lite_file}: ${score}mus"
