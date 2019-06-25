@@ -9,8 +9,8 @@ The techniques investigated were:
 1.  We tried to use pruning as an architecture search algorithm, i.e. starting from a wider network, using some pruning algorithm to prune certain channels, obtaining a thinner network and retraining it from scratch.  
     We tested the NetAdapt, MorphNet and Fisher pruning. Interestingly, NetAdapt was later used for the same purpose in MobileNetsv3 (that where not public when we started this thesis).   
     Unfortunately, all the algorithms we tested did not show better results than mere random pruning on a WideResNet-40-2 on CIFAR-10 using a raspberry-pi 3B to perform inference. Wether it is also the case for other architectures/hardwares/datasets remains to be determined.  
-1.  We tried to use knowledge distillation, this did show interesting improvements but only for MobileNetv1 (We don't know why -- seems like something worth exploring in details). We also tried to use tensorflow's built-in quantization capabilities and manage to use them on MobileNetv1 and only those (this only works with Sequantial models and remains extremely buggy).
-    
+1.  We tried to use knowledge distillation, this did show interesting improvements but only for MobileNetv1 (We don't know why -- seems like something worth exploring in details). We also tried to use tensorflow's built-in quantization capabilities and managed to use them on MobileNetv1/v2 without SE blocks. We could only make posttraining quantization work and this was quite tricky. For the moment, quantization is not so well integrated into tensorflow.
+
     
 ### Repository structure:
 	- CondenseNet: clone of https://github.com/ShichenLiu/CondenseNet with some minor modifications to make it run
@@ -18,5 +18,5 @@ The techniques investigated were:
 	- NetAdapt: self-made implementation of the paper "[NetAdapt: Platform-Aware Neural Network Adaptation for Mobile Applications][http://arxiv.org/abs/1804.03230]", several modifications were made (the main ones are: fisher pruning instead of weights-norm pruning and training from scratch rather than long term fine-tuning)
 	- pytorch-prunes: modification of the code of the paper "[Pruning neural networks: is it time to nip it in the bud?][https://arxiv.org/abs/1810.04622]"
 	- schemes: a folder containing the .odf file I used to create custom schemes to illustrate the different neural networks architectures
-	- training_from_scratch: a repo containing the code that trains neural networks in tensorflow to then load them as .tflite models on the rasberry-pi. This repo also handles knowledge distillation.
-	- The cross-compiled tflite 1.13.1 binary as well as the "benchmark" binary that are used for benchmarking.
+	- training_from_scratch: a repo containing the code that trains neural networks in tensorflow to then load them as .tflite models on the rasberry-pi. This repo also handles knowledge distillation and quantization.
+	- The cross-compiled tflite binary as well as the "benchmark" binary that are used for benchmarking. Both for tf 1.13.1 and tf-nightly

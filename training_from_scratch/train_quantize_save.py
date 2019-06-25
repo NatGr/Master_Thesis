@@ -7,9 +7,11 @@ import tensorflow as tf
 import subprocess
 from tensorflow.keras.callbacks import TensorBoard, LearningRateScheduler
 from tensorflow.keras.optimizers import SGD, Adam, RMSprop
-from tensorflow.keras.regularizers import l2
 from LRTensorBoard import LRTensorBoard
 from KDDataGenerator import KDDataGenerator
+from models.sequential_mobv1 import build_sequential_mobv1
+from tensorflow.keras.regularizers import l2
+from losses import categorical_crossentropy_from_logits
 
 
 parser = argparse.ArgumentParser(description='Training and saving in tf_lite')
@@ -54,52 +56,21 @@ if not os.path.exists(TEACHER_DIR):
 if not os.path.exists(args.tmp_folder):
     os.makedirs(args.tmp_folder)
 
-
-def build_keras_model(args):
-    blocks_per_subnet = [int(args.depth / 3)] * 3
-    regularizer = l2(args.weight_decay)
-    channels_per_subnet = [args.width, args.width * 2, args.width * 4]
-
-    layers = [tf.keras.layers.Conv2D(16, kernel_size=3, activation="relu", padding="same", use_bias=False,
-                                     kernel_regularizer=regularizer, input_shape=(32, 32, 3))]
-
-    for i in range(3):
-        for j in range(blocks_per_subnet[i]):
-            layers.append(tf.keras.layers.BatchNormalization(beta_regularizer=regularizer,
-                                                             gamma_regularizer=regularizer, fused=False))
-            layers.append(tf.keras.layers.DepthwiseConv2D(kernel_size=3, activation="relu",
-                                                          strides=2 if i != 0 and j == 0 else 1, padding="same",
-                                                          use_bias=False, kernel_regularizer=regularizer))
-            layers.append(tf.keras.layers.BatchNormalization(beta_regularizer=regularizer,
-                                                             gamma_regularizer=regularizer, fused=False))
-            layers.append(tf.keras.layers.Conv2D(channels_per_subnet[i], kernel_size=3, activation="relu",
-                                                 padding="same", use_bias=False, kernel_regularizer=regularizer))
-
-    layers.append(tf.keras.layers.AveragePooling2D(pool_size=8))
-    layers.append(tf.keras.layers.Flatten())
-    layers.append(tf.keras.layers.Dense(units=10, activation="softmax", kernel_regularizer=regularizer,
-                                        bias_regularizer=regularizer))
-
-    return tf.keras.Sequential(layers)
-
-# def build_keras_model(args):
-#     blocks_per_subnet = [int(args.depth / 3)] * 3
-#     regularizer = l2(args.weight_decay)
-#     channels_per_subnet = [args.width, args.width * 2, args.width * 4]
-#     return build_mobilenetv2(Input(32, 32, 3), regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
-#                               channels_per_subnet=channels_per_subnet, expansion_factor=6,
-#                               use_dropout=False, se_factor=0)
-
+inputs_shape = (32, 32, 3)
 
 if __name__ == '__main__':
     # train network
     train_graph = tf.Graph()
     train_sess = tf.Session(graph=train_graph)
 
+    blocks_per_subnet = [int(args.depth / 3)] * 3
+    regularizer = l2(args.weight_decay)
+    channels_per_subnet = [args.width, args.width * 2, args.width * 4]
+
     tf.keras.backend.set_session(train_sess)
     with train_graph.as_default():
 
-        model = build_keras_model(args)
+        model = build_sequential_mobv1(inputs_shape, blocks_per_subnet, channels_per_subnet, regularizer)
 
         data_gen = KDDataGenerator(args.train_val_set, args.batch_size, None, 1)
 
@@ -122,7 +93,7 @@ if __name__ == '__main__':
         train_sess.run(tf.global_variables_initializer())
 
         # training
-        model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=['acc'])
+        model.compile(optimizer=optimizer, loss=categorical_crossentropy_from_logits, metrics=['acc'])
 
         tf_dir = os.path.join(LOGS_DIR, args.save_file + "_val" if args.train_val_set else args.save_file)
         callbacks.append(LRTensorBoard(log_dir=tf_dir, batch_size=args.batch_size, write_graph=True))
@@ -151,7 +122,7 @@ if __name__ == '__main__':
         tf.keras.backend.set_session(eval_sess)
         with eval_graph.as_default():
             tf.keras.backend.set_learning_phase(0)
-            eval_model = build_keras_model(args)
+            eval_model = build_sequential_mobv1(inputs_shape, blocks_per_subnet, channels_per_subnet, regularizer)
             tf.contrib.quantize.create_eval_graph(input_graph=eval_graph)
             eval_graph_def = eval_graph.as_graph_def()
             saver = tf.train.Saver()

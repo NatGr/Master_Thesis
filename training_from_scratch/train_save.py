@@ -20,6 +20,7 @@ from models.shufflenetv1 import build_shufflenetv1
 from models.shufflenetv2 import build_shufflenetv2
 from models.nasnet import build_nasnet
 from models.mnasnet import build_mnasnet
+from models.sequential_mobv1 import build_sequential_mobv1
 from LRTensorBoard import LRTensorBoard
 from KDDataGenerator import KDDataGenerator
 from losses import categorical_crossentropy_from_logits, knowledge_distillation_loss
@@ -58,7 +59,7 @@ parser.add_argument('--weight_decay', default=0.0001, type=float, help='weight d
 
 # Net specific arguments
 parser.add_argument('--net', choices=['resnet', 'effnet', 'squeezenext', 'mobilenetv1', 'mobilenetv2', 'shufflenetv1',
-                                      'shufflenetv2', 'nasnet', 'mnasnet'])
+                                      'shufflenetv2', 'nasnet', 'mnasnet', 'sequential_mobv1'])
 parser.add_argument('--depth', '-d', default=40, type=int, help='depth of network')
 parser.add_argument('--channels_pickle', default=None, type=str,
                     help='name of the pickle file containing the number of channels for each layers, only used with res')
@@ -96,7 +97,8 @@ if not os.path.exists(args.tmp_folder):
     os.makedirs(args.tmp_folder)
 
 # network
-inputs = Input((32, 32, 3))
+inputs_shape = (32, 32, 3)
+inputs = Input(inputs_shape)
 
 if args.depth % 3 == 0:
     blocks_per_subnet = [int(args.depth / 3)] * 3
@@ -155,6 +157,8 @@ elif args.net == 'mnasnet':
     model = build_mnasnet(inputs, regularizer=regularizer, blocks_per_subnet=blocks_per_subnet,
                           channels_per_subnet=channels_per_subnet, expansion_factor=args.expansion_rate,
                           use_dropout=args.use_dropout, se_factor=args.se_factor)
+elif args.net == 'sequential_mobv1':
+    model = build_sequential_mobv1(inputs_shape, blocks_per_subnet, channels_per_subnet, regularizer)
 
 else:
     raise ValueError('pick a valid net')
