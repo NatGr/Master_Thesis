@@ -1,0 +1,6 @@
+name,net,KD_pipeline,acc1,acc2,acc3,time
+res-10-base,res-10,false,0.8928,0.8930,0.8925,.0164
+res-22-base,res-22,true,0.9265,0.9264,0.9268,.0490
+res-16-KD,res-16,true,0.9287,0.9226,0.9255,.0325
+res-16-base,res-16,false,.9216,.9186,.9187,.0325
+res-10-KD,res-10,true,0.9035,0.9003,0.9012,.0164

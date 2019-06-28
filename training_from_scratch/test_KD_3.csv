@@ -1,0 +1,15 @@
+file_name,pipeline,acc1,acc2,acc3
+mobilenetv1_d15_w100_cosine_KDnoT_t2_l02,teacher,.949,.9462,.9468
+mobilenetv1_d12_w64_cosine_KDnoT_t2_l02,student,.9432,.9444,.9386
+mobilenetv1_d12_w64_cosine,no_KD,.9384,.9374,.9336
+mobilenetv1_d15_w100_se2_cosine_KDnoT_t2_l02,teacher,.9484,.9504,.9452
+mobilenetv1_d12_w64_se2_cosine_KDnoT_t2_l02,student,.9472,.9458,.9428
+mobilenetv1_d12_w64_se2_cosine,no_KD,.9432,.944,.9368
+
+mobilenetv2_d12_er6_w24_dropout_newKD,teacher,.95,.9474,.9494
+mobilenetv2_d9_er4_w24_dropout_newKD,student,.9386,.9346,.9366
+mobilenetv2_d9_er4_w24_dropout,no_KD,.9342,.932,.9356
+mobilenetv2_d12_er6_w24_se2_dropout_newKD,teacher,.9548,.9464,.9502
+mobilenetv2_d9_er4_w24_se2_dropout_newKD,student,.946,.9432,.9454
+mobilenetv2_d9_er4_w24_se2_dropout,no_KD,.9432,.949,.942
+

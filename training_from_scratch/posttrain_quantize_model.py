@@ -23,7 +23,6 @@ if __name__ == '__main__':
     channel_wise_std = np.reshape(np.array([63.0, 62.1, 66.7]), (1, 1, 1, -1))
     x_test = ((x_test - channel_wise_mean) / channel_wise_std).astype(np.float32)
 
-
     # Convert to TensorFlow Lite model.
     converter = tf.compat.v1.lite.TFLiteConverter.from_keras_model_file(tmp_keras_file)
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
@@ -40,7 +39,6 @@ if __name__ == '__main__':
     converter.representative_dataset = representative_data_gen
 
     tflite_model = converter.convert()
-
 
     with open(tflite_file, "wb") as file:
         file.write(tflite_model)

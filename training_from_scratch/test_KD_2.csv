@@ -1,0 +1,7 @@
+file_name,pipeline,group,acc1,acc2,acc3
+wrn_40_4_se2,teacher,0,.955,.9556,.9574
+res_d28_w32_KD_t2_l02,KD_teach,1,.9484,.9502,.948
+res_d22_w24_KD_t2_l02,KD_teach,2,.9412,.9458,.9424
+res_d28_w32_KDnoT_t2_l02,no_KD,1,.9518,.9474,.949
+res_d22_w24_KDnoT_t2_l02,KD_no_teach,2,.9444,.9466,.942
+res_d22_w24,no_KD,2,.945,.9418,.9396
